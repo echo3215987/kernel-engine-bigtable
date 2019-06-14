@@ -1,0 +1,6 @@
+# dev-local , dev-k8s , dtsa-lx-k8s , ipcd-lx-k8s , ipbd-lx-monitor-k8s , ipbd-lx-printer-k8s , cartridge-nesta-k8s
+mode: "dev-local"
+dev-local_config_path: "conf/config_dev-local.yaml"
+dev-k8s_config_path: "conf/config_dev-k8s.yaml"
+ipbd-lx-printer-k8s_config_path: "conf/config_ipbd-lx-printer-k8s.yaml"
+dev-ipbd-lx-printer_config_path: "conf/config_dev-ipbd-lx-printer.yaml"
