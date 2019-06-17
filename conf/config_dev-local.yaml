@@ -2,8 +2,7 @@ spark:
     job_name: "dev-local-xwj-KernelEngine"
     master: "local"
     conf: "spark.driver.memory=2g;
-           spark.executor.memory=2g;
-           spark.sql.session.timeZone='CST'"
+           spark.executor.memory=2g"
 
 minio:
     endpoint:   "http://10.57.232.167:31359"
@@ -119,7 +118,7 @@ log_prop:
     log_seperator: "_\\|\\|_"
     log_seperator_non_escape: "_||_"
 
-    product_df_fmt: "yyyy-MM-dd HH:mm"
+    product_dt_fmt: "yyyy-MM-dd HH:mm"
 
 analysis:
     fail_condition: "2"

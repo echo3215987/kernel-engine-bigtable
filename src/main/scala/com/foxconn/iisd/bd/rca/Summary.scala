@@ -1,9 +1,9 @@
-package com.foxconn.iisd.bd.rca.utils
+package com.foxconn.iisd.bd.rca
 
 import java.util
 
 import com.google.gson.Gson
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.SparkSession
 
 object Summary {
 

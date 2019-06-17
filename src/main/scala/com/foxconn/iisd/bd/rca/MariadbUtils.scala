@@ -1,4 +1,4 @@
-package com.foxconn.iisd.bd.rca.utils.db
+package com.foxconn.iisd.bd.rca
 
 import java.sql.{Connection, DriverManager}
 import java.util.Properties

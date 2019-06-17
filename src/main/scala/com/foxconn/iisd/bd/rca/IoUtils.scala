@@ -1,18 +1,14 @@
-package com.foxconn.iisd.bd.rca.utils
+package com.foxconn.iisd.bd.rca
 
-import java.io._
 import java.net.URI
-import java.nio.file.{Files, Paths}
 import java.sql.DriverManager
+import java.util
 import java.util.Properties
 
 import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
-import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.hadoop.fs._
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import java.util
-import org.apache.hadoop.fs.FileUtil
-
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import scala.io.Source
 

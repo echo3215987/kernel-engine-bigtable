@@ -3,9 +3,6 @@ package com.foxconn.iisd.bd.rca
 import java.time.LocalDateTime
 
 import com.foxconn.iisd.bd.rca.XWJBigtable.datetimeFormatter
-import com.foxconn.iisd.bd.rca.utils.Summary
-import com.foxconn.iisd.bd.rca.utils.db.MariadbUtils
-import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.{DataFrame, SparkSession}

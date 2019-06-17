@@ -1,7 +1,8 @@
-package com.foxconn.iisd.bd.config
+package com.foxconn.iisd.bd.rca
 
 import java.io.File
 import java.util
+
 import org.apache.spark.sql.SparkSession
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.Constructor

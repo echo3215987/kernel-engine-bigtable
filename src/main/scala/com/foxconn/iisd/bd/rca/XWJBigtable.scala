@@ -2,24 +2,11 @@ package com.foxconn.iisd.bd.rca
 
 import java.io.FileNotFoundException
 import java.text.SimpleDateFormat
-import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-import com.foxconn.iisd.bd.config.ConfigLoader
-import com.foxconn.iisd.bd.rca.utils.IoUtils
-import com.foxconn.iisd.bd.rca.utils.Summary
-import com.foxconn.iisd.bd.rca.utils.db._
-import com.foxconn.iisd.bd.rca.SparkUDF._
-import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{regexp_replace, _}
-import org.apache.spark.sql.types.{StructField, _}
-import org.apache.spark.sql.Encoders
-import org.apache.log4j.Logger
-import org.apache.log4j.Level
+import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.storage.StorageLevel
-
 
 object XWJBigtable {
 
@@ -59,11 +46,14 @@ object XWJBigtable {
 
     var date: java.util.Date = new java.util.Date()
     val flag = date.getTime().toString
-    /*val jobStartTime: String = new SimpleDateFormat(
+    val jobStartTime: String = new SimpleDateFormat(
         configLoader.getString("summary_log_path","job_fmt")).format(date.getTime())
     println("job start time : " + jobStartTime)
-    Summary.setJobStartTime(jobStartTime)
-*/
+    val datasetExecuteTime: String = new SimpleDateFormat(
+      configLoader.getString("log_prop","product_dt_fmt")).format(date.getTime())
+    println("dataset execute time : " + datasetExecuteTime)
+//    Summary.setJobStartTime(jobStartTime)
+
     println(s"flag: $flag" + ": xwj")
 
     Logger.getLogger("org").setLevel(Level.OFF)
@@ -110,8 +100,6 @@ object XWJBigtable {
       spark.sparkContext.hadoopConfiguration.set("fs.s3a.secret.key", secretKey)
     }
 
-    import spark.implicits._
-
     val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
 
     //val factory = configLoader.getString("general", "factory")
@@ -144,7 +132,7 @@ object XWJBigtable {
 //      val datasetDf = mariadbUtils
 //          .execSqlToMariadb("select " + datasetColumnStr + " from " + datasetTableStr + " where effective_start_date<=")
 
-println("select " + datasetColumnStr + " from " + datasetTableStr + " where effective_start_date<=")
+      println("select " + datasetColumnStr + " from " + datasetTableStr + " where effective_start_date<=")
 
     } catch {
       case ex: FileNotFoundException => {
