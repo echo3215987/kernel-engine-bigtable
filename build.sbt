@@ -1,11 +1,11 @@
-name := "rcaKernelEngine"
+name := "XWJ_kernel_engine_bigtable"
 
 version := "0.1"
 
 scalaVersion := "2.12.8"
 //scalaVersion := "2.11.8"
 
-mainClass in assembly := Some("com.foxconn.iisd.bd.rca.KernelEngineV1")
+mainClass in assembly := Some("com.foxconn.iisd.bd.rca.XWJBigtable")
 
 assemblyJarName in assembly := { s"${name.value}.jar" }
 

@@ -119,6 +119,8 @@ log_prop:
     log_seperator: "_\\|\\|_"
     log_seperator_non_escape: "_||_"
 
+    product_df_fmt: "yyyy-MM-dd HH:mm"
+
 analysis:
     fail_condition: "2"
 

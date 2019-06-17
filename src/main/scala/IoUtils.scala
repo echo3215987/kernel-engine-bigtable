@@ -6,7 +6,7 @@ import java.nio.file.{Files, Paths}
 import java.sql.DriverManager
 import java.util.Properties
 
-import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
+import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
 import org.apache.hadoop.fs.{FSDataInputStream, FSDataOutputStream, FileSystem, Path}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}

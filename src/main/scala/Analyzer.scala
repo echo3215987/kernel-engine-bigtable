@@ -2,7 +2,7 @@ package com.foxconn.iisd.bd.rca
 
 import java.time.LocalDateTime
 
-import com.foxconn.iisd.bd.rca.XWJKernelEngine.datetimeFormatter
+import com.foxconn.iisd.bd.rca.XWJBigtable.datetimeFormatter
 import com.foxconn.iisd.bd.rca.utils.Summary
 import com.foxconn.iisd.bd.rca.utils.db.MariadbUtils
 import org.apache.spark.sql.expressions.Window

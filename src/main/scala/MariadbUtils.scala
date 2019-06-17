@@ -3,7 +3,7 @@ package com.foxconn.iisd.bd.rca.utils.db
 import java.sql.{Connection, DriverManager}
 import java.util.Properties
 
-import com.foxconn.iisd.bd.rca.XWJKernelEngine.configLoader
+import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class MariadbUtils {
