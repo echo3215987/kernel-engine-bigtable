@@ -44,14 +44,15 @@ object XWJBigtable {
 
   def start(): Unit = {
 
+
     var date: java.util.Date = new java.util.Date()
     val flag = date.getTime().toString
     val jobStartTime: String = new SimpleDateFormat(
         configLoader.getString("summary_log_path","job_fmt")).format(date.getTime())
     println("job start time : " + jobStartTime)
-    val datasetExecuteTime: String = new SimpleDateFormat(
+    val executeTime: String = new SimpleDateFormat(
       configLoader.getString("log_prop","product_dt_fmt")).format(date.getTime())
-    println("dataset execute time : " + datasetExecuteTime)
+    println("execute time : " + executeTime)
 //    Summary.setJobStartTime(jobStartTime)
 
     println(s"flag: $flag" + ": xwj")
@@ -99,7 +100,7 @@ object XWJBigtable {
       spark.sparkContext.hadoopConfiguration.set("fs.s3a.access.key", accessKey)
       spark.sparkContext.hadoopConfiguration.set("fs.s3a.secret.key", secretKey)
     }
-
+    import spark.implicits._
     val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
 
     //val factory = configLoader.getString("general", "factory")
@@ -128,12 +129,27 @@ object XWJBigtable {
 
       val datasetColumnStr = "id, product, bt_name, bt_create_time, bt_last_time, effective_start_date, effective_end_date"
       val datasetTableStr = "data_set_setting"
+
+      val datasetSql = "select setting.id, setting.product, setting.bt_create_time, " +
+        "setting.bt_last_time, setting.bt_next_time, setting.effective_end_date, " +
+        "setting.effective_start_date, part.component, item.item, item.station " +
+        "from data_set_setting setting, data_set_station_item item, data_set_part part " +
+        "where setting.id=item.dss_id and setting.id=part.dss_id " +
+        "and setting.effective_start_date>='" + executeTime + "' "+
+        "and setting.effective_end_date<='" + executeTime + "' "
       //select id, product, bt_name, bt_create_time, bt_last_time, effective_start_date, effective_end_date
 //      val datasetDf = mariadbUtils
-//          .execSqlToMariadb("select " + datasetColumnStr + " from " + datasetTableStr + " where effective_start_date<=")
+//          .execSqlToMariadb("select " + datasetColumnStr + " from " + datasetTableStr
+//            + " where effective_start_date<='" + executeTime +"' and effective_end_date>='" + executeTime + "'")
+//
+        val datasetDf = mariadbUtils
+          .execSqlToMariadbToGetResult(spark, datasetSql)
 
-      println("select " + datasetColumnStr + " from " + datasetTableStr + " where effective_start_date<=")
 
+//       val datasetDf = mariadbUtils.getDfFromMariadb(spark, datasetTableStr)
+//         .where("effective_start_date<='" + executeTime +"' and effective_end_date>='" + executeTime + "'")
+//         .select("id","bt_name", "bt_create_time", "bt_last_time", "effective_start_date", "effective_end_date")
+//      datasetDf.show(false)
     } catch {
       case ex: FileNotFoundException => {
         // ex.printStackTrace()
