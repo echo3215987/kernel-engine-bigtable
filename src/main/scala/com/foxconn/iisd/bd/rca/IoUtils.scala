@@ -1,7 +1,7 @@
 package com.foxconn.iisd.bd.rca
 
 import java.net.URI
-import java.sql.DriverManager
+import java.sql.{Connection, DriverManager, ResultSet, PreparedStatement}
 import java.util
 import java.util.Properties
 
@@ -124,6 +124,82 @@ object IoUtils {
         )
 
         return spark.read.jdbc(cockroachdbUrl, table, predicates, cockroachdbConnectionProperties)
+    }
+
+    def getRowFromResultSet(resultSet: ResultSet, colCount: Int): Row ={
+        var i : Int = 1
+        var seq = Seq("")
+        while(i <= colCount){
+            if(i == 1)
+                seq = Seq(resultSet.getString(i))
+            else
+                seq = seq :+ resultSet.getString(i)
+            i += 1
+        }
+
+        Row.fromSeq(seq)
+    }
+
+    def getDfFromCockroachdb(spark: SparkSession, selectArr: List[String], columns: String, selectSqlColumnName:String, selectSql: String): DataFrame = {
+
+        val schema = StructType(columns
+          .split(",")
+          .map(fieldName => StructField(fieldName,StringType, true)))
+
+
+        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
+        val cockroachdbConnectionProperties = new Properties()
+
+        cockroachdbConnectionProperties.put(
+            "user",
+            configLoader.getString("cockroachdb", "username")
+        )
+
+        cockroachdbConnectionProperties.put(
+            "password",
+            configLoader.getString("cockroachdb", "password")
+        )
+
+        cockroachdbConnectionProperties.put(
+            "sslmode",
+            configLoader.getString("cockroachdb", "sslmode")
+        )
+        cockroachdbConnectionProperties.put(
+            "allowEncodingChanges",
+            "true"
+        )
+
+        var df = spark.emptyDataFrame
+        var i = 0
+        for (whereSql <- selectArr){
+
+            val conn = DriverManager.getConnection(
+                cockroachdbUrl,
+                cockroachdbConnectionProperties)
+
+            conn.setAutoCommit(false)
+
+            val rs = conn.createStatement().executeQuery(selectSql + whereSql)
+            val columnCnt: Int = rs.getMetaData.getColumnCount
+
+            val resultSetRow = Iterator.continually((rs.next(), rs)).takeWhile(_._1).map(
+                r => {
+                    getRowFromResultSet(r._2, columnCnt) // (ResultSet) => (spark.sql.Row)
+                }).toList
+
+            val rdd = spark.sparkContext.makeRDD(resultSetRow)
+
+            conn.commit()
+            conn.close()
+
+            val tempDf = spark.createDataFrame(rdd, schema)
+            if(i == 0)
+                df = tempDf
+            else
+                df = df.union(tempDf)
+            i = i + 1
+        }
+        df
     }
 
     def saveToCockroachdb(df: DataFrame, table: String, numExecutors: Int): Unit = {
