@@ -15,7 +15,7 @@ cockroachdb:
     host:       "10.57.232.63"
     port:       "26257"
     sslmode:    "require"
-    database:   "rca-dev"
+    database:   "rca-ipbd-lx-printer"
     username:   "bigdata"
     password:   "bigdata"
     conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}"
@@ -24,7 +24,7 @@ mariadb:
     adapter:    "mysql"
     host:       "10.57.232.61"
     port:       "3308"
-    database:   "rca-dev-ipbd-lx-printer"
+    database:   "rca-ipbd-lx-printer"
     username:   "edgeserver"
     password:   "Foxconn123654!@"
     conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&useUnicode=true&characterEncoding=UTF-8"
@@ -87,12 +87,6 @@ minio_log_path:
 
     test_detail_path: "{{data_base_path}}/TEST_DETAIL"
     test_detail_file_limits: "1"
-
-summary_log_path:
-    data_base_path: "s3a://rca-dev/IPPD-L10/Summary"
-    tag: "KE"
-    file_extension: "log"
-    job_fmt: "yyyy-MM-dd HH:mm:ss"
 
 log_prop:
     #CN8BJ7C2G1_||_CN8BJ7C2G1_||_296200140_||_V1N03B#629_||_V1N03B#629_||_Main   B_||_2018-11-19 13:39:07.467_||__||__||_TaiJi   Base_||_D626

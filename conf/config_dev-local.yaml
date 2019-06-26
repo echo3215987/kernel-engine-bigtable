@@ -1,5 +1,5 @@
 spark:
-    job_name: "dev-local-xwj-KernelEngine"
+    job_name: "dev-local-xwj-KernelEngineBigTable"
     master: "local"
     conf: "spark.driver.memory=2g;
            spark.executor.memory=2g"
@@ -96,7 +96,7 @@ summary_log_path:
 
 log_prop:
     #CN8BJ7C2G1_||_CN8BJ7C2G1_||_296200140_||_V1N03B#629_||_V1N03B#629_||_Main   B_||_2018-11-19 13:39:07.467_||__||__||_TaiJi   Base_||_D626
-    wip_col: "id,sn,wo,hh_part,cust_part,assembline,scantime,na1,na2,product,floor"
+    wip_col: "id,sn,wo,hh_part,cust_part,assembline,scantime,na1,na2,product,floor,factory"
     wip_table: "part_master"
     wip_dt_fmt: "yyyy-MM-dd HH:mm:ss"
 
@@ -114,6 +114,17 @@ log_prop:
     test_detail_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,create_time,update_time,station_name,start_date,product,test_version"
     test_detail_table: "test_detail"
     test_detail_dt_fmt: "yyyy-MM-dd HH:mm:ss"
+
+    #CHEB_||_296269793_||_CEB1_||_V1N01B#629_||_V1N01B#629_||_V1N01B#629_||_1_||_CHEB_WO_20190524171446.dat_||_SOR_||_ZFRT_||__||_HP DeskJet 2620 All-in-One Printer_||_20190523_||_P2_||_20190523
+    #SELECT product, build_name, file_name, wo, wo_type, plant_code, vendor_pn, hhpn, plan_qty, config, component_type, main_wo, upsert_time
+    wo_col: "plant_code,wo,wo_type,hhpn,vendor_pn,config,plan_qty,file_name,build_name,component_type,main_wo,product,releasedate,prodversion,createDate"
+    wo_table: "work_order"
+    wo_dt_fmt: "yyyy-MM-dd HH:mm:ss"
+
+    #Taiji Base_||_SOR_||__||_V1N01B#629_||_ZFRT_||_ZFRT_||__||_V1N01B#629_||_V1N01B#629_||__||_CHEB_WO_20190524171446.dat_||__||__||__||__||__||__||__||__||__||__||_1_||_
+    mat_col: "product,build_name,file_name,config_name,component_type,component,version,hhpn,oempn,description,config,vendor,per,aoh,color,config_description,oem_notes,drp_notes,notes,etas,etds,input_qty,excel_row_id"
+    mat_table: "config_component"
+    mat_dt_fmt: "yyyy-MM-dd HH:mm:ss"
 
     log_seperator: "_\\|\\|_"
     log_seperator_non_escape: "_||_"

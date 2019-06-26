@@ -149,7 +149,9 @@ object XWJBigtable {
 
       val datasetDf = mariadbUtils.execSqlToMariadbToDf(spark, datasetSql, datasetColumnStr)
         .filter($"item".isNotNull.and($"station".isNotNull))
+
       datasetDf.show()
+
       var testdetailGroupByProductIdDF = datasetDf.groupBy("product", "id", "name").agg(collect_set("station").as("station"),
         collect_set("item").as("item"))
 
@@ -158,6 +160,14 @@ object XWJBigtable {
 
       datasetDf.show(false)
       testdetailDF.show(false)
+      testdetailDF = spark.emptyDataFrame
+      val count = testdetailDF.count()
+      if(count == 0){
+        println("count: 0筆")
+        sys.exit
+      }
+
+      println("count: " + count + "筆")
       //sample sql
       //      val sql = "select * from public.test_detail where station_name='TLEOL'" +
       //        "and product = 'TaiJi Base' and (array_length(array_positions(test_item, 'ProcPCClockSync^DResultInfo'), 1)>0" +
@@ -174,6 +184,7 @@ object XWJBigtable {
       var testdetailFilterColumnStr = "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime," +
         "test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id," +
         "create_time,update_time,station_name,start_date,product,test_version,test_value,"
+
 
       testdetailFilterColumnStr = testdetailFilterColumnStr + testdetailDF.select("selectSql").first().mkString("").toString()
       var selectSql = "select " + testdetailFilterColumnStr + " from test_detail"
@@ -243,11 +254,41 @@ object XWJBigtable {
        .withColumn(item_info_str, transferArrayToString(col("collect_set("+item_info_str+")")))
        .drop(col("collect_set(item_info)"))
        .withColumn("sn_type", lit("unit_sn"))
+
+
+      //組裝主表撈出sn對應的wo
+      val snList = testDeailResultGroupByFirstDf.select("sn").dropDuplicates().map(_.getString(0)).collect.toList
+      //TODO for ippd test_detail sn要取前十碼才對的上part_master sn
+      val partMasterPredicates = Array[String]("sn in (" + snList.map(s => "'" + s.substring(0, 10) + "'").mkString(",") + ")")
+      println("sn in (" + snList.map(s => "'" + s.substring(0, 10) + "'").mkString(",") + ")")
+
+      val partdetailDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "wip_table"), partMasterPredicates)
+
+      val woList = partdetailDf.select("wo").dropDuplicates().map(_.getString(0)).collect.toList
+      val woPredicates = Array[String]("wo in (" + woList.map(s => "'" + s.substring(3, s.length) + "'").mkString(",") + ")")
+      //TODO for ippd part_master wo要取後三碼才對的上worker_order wo
+      println("wo in (" + woList.map(s => "'" + s.substring(3, s.length) + "'").mkString(",") + ")")
+
+      val woDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "wo_table"), woPredicates)
+
+      val configList = woDf.select("config").dropDuplicates().map(_.getString(0)).collect.toList
+      val configPredicates = Array[String]("config in (" + configList.map(s => "'" + s + "'").mkString(",") + ")")
+
+      println("config in (" + woList.map(s => "'" + s + "'").mkString(",") + ")")
+
+      val comConfigDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "mat_table"), configPredicates)
+
+      partdetailDf.show(false)
+      woDf.show(false)
+      comConfigDf.show(false)
+
+
+
       testDeailResultGroupByFirstDf.show(25, false)
 
       //create dataset bigtable schema
       var schema = "`data_set_name` varchar(200) Not NULL,"+
-        "`data_set_id` int(11) Not NULL," +
+        "`data_set_id` varchar(30) Not NULL," +
         "`product` varchar(50) Not NULL," +
         "`sn` varchar(100) Not NULL,"+
         "`sn_type` varchar(100) DEFAULT NULL,"+
@@ -294,36 +335,38 @@ object XWJBigtable {
         "PRIMARY KEY (`data_set_id`,`product`,`sn`,`value_rank`)"+
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
 
-      //val datasetBigtableColumnStr = "data_set_name,data_set_id,product,sn,sn_type,value_rank,station_info,item_info"
+//      val datasetBigtableColumnStr = "data_set_name,data_set_id,product,sn,sn_type,value_rank,station_info,item_info"
 //        "wo," +
 //        "floor,hhpn,build_id,configs,unit_color,category,build_date,input_qty,side/line,shift/side," +
 //        "A-Datum Adhesive_Vendor,CG_OEM PN," +
 //        ""
 
+//      "V1NO1B#629@vender":"",
+//
       testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.withColumnRenamed("name","data_set_name")
         .withColumnRenamed("id","data_set_id")
 
-      val datasetIdDF = testDeailResultGroupByFirstDf.select("data_set_id").dropDuplicates("data_set_id")
-      val idList = datasetIdDF.map(_.getString(0)).collect.toList
-      for (id <- idList) {
-        //create dataset bigtable schema
-        val createSql = "CREATE TABLE IF NOT EXISTS `data_set_bigtable@"+id+"` ("+ schema
-        mariadbUtils.execSqlToMariadb(createSql)
-        //truncate dataset bigtable schema
-        val truncateSql = "TRUNCATE TABLE `data_set_bigtable@"+id+"`"
-        mariadbUtils.execSqlToMariadb(truncateSql)
-        //insert 大表資料
-        mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf.filter(col("data_set_id").equalTo(id)),
-          "`data_set_bigtable@"+id+"`", numExecutors)
-        //update dataset 設定的欄位
-        val updateSql = "UPDATE data_set_setting"+" SET bt_name='data_set_bigtable@"+id+"'," +
-        " bt_create_time = COALESCE(bt_create_time, '"+jobStartTime+"')," +
-        " bt_last_time = '" + jobStartTime + "'," +
-        " bt_next_time = '" + nextExcuteTime + "'" +
-        " WHERE id = " + id
-println(updateSql)
-        mariadbUtils.execSqlToMariadb(updateSql)
-      }
+//      val datasetIdDF = testDeailResultGroupByFirstDf.select("data_set_id").dropDuplicates("data_set_id")
+//      val idList = datasetIdDF.map(_.getString(0)).collect.toList
+//      for (id <- idList) {
+//        //create dataset bigtable schema
+//        val createSql = "CREATE TABLE IF NOT EXISTS `data_set_bigtable@"+id+"` ("+ schema
+//        mariadbUtils.execSqlToMariadb(createSql)
+//        //truncate dataset bigtable schema
+//        val truncateSql = "TRUNCATE TABLE `data_set_bigtable@"+id+"`"
+//        mariadbUtils.execSqlToMariadb(truncateSql)
+//        //insert 大表資料
+//        mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf.filter(col("data_set_id").equalTo(id)),
+//          "`data_set_bigtable@"+id+"`", numExecutors)
+//        //update dataset 設定的欄位
+//        val updateSql = "UPDATE data_set_setting"+" SET bt_name='data_set_bigtable@"+id+"'," +
+//        " bt_create_time = COALESCE(bt_create_time, '"+jobStartTime+"')," +
+//        " bt_last_time = '" + jobStartTime + "'," +
+//        " bt_next_time = '" + nextExcuteTime + "'" +
+//        " WHERE id = " + id
+//
+//        mariadbUtils.execSqlToMariadb(updateSql)
+//      }
 
 
 
