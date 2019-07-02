@@ -150,24 +150,23 @@ object XWJBigtable {
       val datasetDf = mariadbUtils.execSqlToMariadbToDf(spark, datasetSql, datasetColumnStr)
         .filter($"item".isNotNull.and($"station".isNotNull))
 
-      datasetDf.show()
+      var testdetailGroupByProductIdDF = datasetDf.groupBy("product", "id", "name")
+        .agg(collect_set("station").as("station"),
+        collect_set("item").as("item"),
+          collect_set("component").as("component"))
 
-      var testdetailGroupByProductIdDF = datasetDf.groupBy("product", "id", "name").agg(collect_set("station").as("station"),
-        collect_set("item").as("item"))
-
-      var testdetailDF = datasetDf.groupBy("product").agg(collect_set("station").as("station"),
+      var testdetailDF = datasetDf.groupBy("product")
+        .agg(collect_set("station").as("station"),
           collect_set("item").as("item"))
 
-      datasetDf.show(false)
-      testdetailDF.show(false)
-      testdetailDF = spark.emptyDataFrame
+      //testdetailDF = spark.emptyDataFrame
       val count = testdetailDF.count()
       if(count == 0){
-        println("count: 0筆")
+        println("count: 0 row")
         sys.exit
       }
 
-      println("count: " + count + "筆")
+      println("count: " + count + " row")
       //sample sql
       //      val sql = "select * from public.test_detail where station_name='TLEOL'" +
       //        "and product = 'TaiJi Base' and (array_length(array_positions(test_item, 'ProcPCClockSync^DResultInfo'), 1)>0" +
@@ -185,18 +184,16 @@ object XWJBigtable {
         "test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id," +
         "create_time,update_time,station_name,start_date,product,test_version,test_value,"
 
-
       testdetailFilterColumnStr = testdetailFilterColumnStr + testdetailDF.select("selectSql").first().mkString("").toString()
       var selectSql = "select " + testdetailFilterColumnStr + " from test_detail"
 
       testdetailDF = testdetailDF.withColumn("whereSql",
         genTestDetailWhereSQL(col("product"), col("station"), col("item")))
-      testdetailDF.show(false)
 
       //撈測試結果細表的條件
       val selectSqlList = testdetailDF.select("whereSql").map(_.getString(0)).collect.toList
-      val testDeailResultDf = IoUtils.getDfFromCockroachdb(spark, selectSqlList, testdetailFilterColumnStr, "whereSql", selectSql)
-      testDeailResultDf.show(false)
+      val testDeailResultDf = IoUtils.getDfFromCockroachdb(spark, selectSqlList,
+        testdetailFilterColumnStr, "whereSql", selectSql)
 
       //group by sn, staion_name, order by test_starttime
       val wSpecAsc = Window.partitionBy(col("sn"), col("station_name"))
@@ -262,29 +259,86 @@ object XWJBigtable {
       val partMasterPredicates = Array[String]("sn in (" + snList.map(s => "'" + s.substring(0, 10) + "'").mkString(",") + ")")
       println("sn in (" + snList.map(s => "'" + s.substring(0, 10) + "'").mkString(",") + ")")
 
-      val partdetailDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "wip_table"), partMasterPredicates)
+      var partMasterDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "wip_table"), partMasterPredicates)
 
-      val woList = partdetailDf.select("wo").dropDuplicates().map(_.getString(0)).collect.toList
+      val woList = partMasterDf.select("wo").dropDuplicates().map(_.getString(0)).collect.toList
       val woPredicates = Array[String]("wo in (" + woList.map(s => "'" + s.substring(3, s.length) + "'").mkString(",") + ")")
       //TODO for ippd part_master wo要取後三碼才對的上worker_order wo
       println("wo in (" + woList.map(s => "'" + s.substring(3, s.length) + "'").mkString(",") + ")")
 
-      val woDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "wo_table"), woPredicates)
+      var woDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "wo_table"), woPredicates)
 
+      //只撈關鍵物料的component
+      val componentList = datasetDf.select("component").dropDuplicates().map(_.getString(0)).collect.toList
       val configList = woDf.select("config").dropDuplicates().map(_.getString(0)).collect.toList
-      val configPredicates = Array[String]("config in (" + configList.map(s => "'" + s + "'").mkString(",") + ")")
+      val configPredicates = Array[String]("config in (" + configList.map(s => "'" + s + "'").mkString(",") + ") " +
+        "and component in (" +   componentList.map(s => "'" + s + "'").mkString(",") + ")")
+      val partsnPredicates = Array[String]("partsn in (" + configList.map(s => "'" + s + "'").mkString(",") + ")")
 
-      println("config in (" + woList.map(s => "'" + s + "'").mkString(",") + ")")
+      println("config in (" + configList.map(s => "'" + s + "'").mkString(",") + ")")
 
-      val comConfigDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "mat_table"), configPredicates)
+      var partDetailDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "wip_parts_table"), partsnPredicates)
+          .dropDuplicates("partsn", "cust_part", "vendor_code", "date_code")
+      partDetailDf.show(false)
 
-      partdetailDf.show(false)
+      var comConfigDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "mat_table"), configPredicates)
+        .select("config","vendor", "hhpn", "oempn", "component", "component_type", "input_qty")
+      val componentInfoStr = "vendor,hhpn,oempn,component_type,input_qty"
+      val conponent_str ="component"
+      val conponent_info_str ="component_info"
+      //以每個dataset, 收斂成一個關鍵物料資訊
+      //comConfigDf = comConfigDf.withColumn(conponent_str, col("component"))
+      var comConfigMap = Map[String, String]()
+      var comConfigList = List[String]()
+      componentInfoStr.split(",").foreach(attr=>{
+        var attrStr = attr+"_str"
+        comConfigDf = comConfigDf
+          .withColumn(attrStr, genStaionJsonFormat(col(conponent_str), lit(attr), col(attr)))
+        comConfigMap = comConfigMap + (attrStr -> "collect_set")
+        comConfigList = comConfigList :+ "collect_set(" + attrStr + ")"
+      })
+
+      var datasetComponentDF = testDeailResultGroupByFirstDf.select("id", "sn").dropDuplicates()
+          .join(testdetailGroupByProductIdDF.select("id", "component").dropDuplicates(), Seq("id"))
+          .withColumn("component", explode(col("component")))
+          .join(comConfigDf, Seq("component"), "left")
+      datasetComponentDF.show(false)
+
+      //group by 並收斂關鍵物料資訊
+      datasetComponentDF = datasetComponentDF.groupBy("id", "sn", "config")
+        .agg(comConfigMap)
+        .withColumn(conponent_info_str, array())
+
+      comConfigList.foreach(ele => {
+        datasetComponentDF = datasetComponentDF
+          .withColumn(conponent_info_str, genStaionInfo(col(conponent_info_str), col(ele)))
+          .drop(ele) //刪除collect_set的多個工站資訊欄位
+      })
+
+      datasetComponentDF.show(false)
+
+      partMasterDf = partMasterDf.dropDuplicates("sn", "wo")
+        //TODO for ippd part_master wo要取後三碼開始才對的上worker_order wo
+        .withColumn("wo", expr("substring(wo, 4, length(wo))"))
+
+      woDf = partMasterDf.join(woDf, Seq("wo"), "left")
+        .join(partDetailDf, Seq("id"), "left")
+        //.select("wo", "wo_type", "plant_code", "vendor_pn", "hhpn", "plan_qty", "config", "build_name","vendor_code","date_code")
+        .select("wo", "wo_type", "plant_code", "plan_qty", "config", "build_name","vendor_code","date_code")
       woDf.show(false)
-      comConfigDf.show(false)
+      //join 工單與關鍵
+      datasetComponentDF = woDf.join(datasetComponentDF, Seq("config"), "left") //left
 
+      datasetComponentDF.show(false)
 
+      testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
+        //TODO for ippd test_detail sn要取前十碼才對的上part_master sn
+        //.withColumn("sn", substring($"sn", 0, 10))
+        .join(datasetComponentDF, Seq("id", "sn"), "left")
+        .withColumn(conponent_info_str, transferArrayToString(col(conponent_info_str)))
 
       testDeailResultGroupByFirstDf.show(25, false)
+
 
       //create dataset bigtable schema
       var schema = "`data_set_name` varchar(200) Not NULL,"+
@@ -295,80 +349,56 @@ object XWJBigtable {
         "`value_rank` varchar(30) Not NULL,"+
         "`station_info` json Not NULL,"+
         "`item_info` json Not NULL,"+
+        "`floor` varchar(50) DEFAULT NULL,"+ //組裝樓層
         "`wo` varchar(50) DEFAULT NULL,"+
-        "`floor` varchar(50) DEFAULT NULL,"+
-        "`hhpn` varchar(50) DEFAULT NULL,"+
-        "`build_id` varchar(50) DEFAULT NULL,"+
-        "`configs` varchar(50) DEFAULT NULL,"+
-        "`unit_color` varchar(500) DEFAULT NULL,"+
-        "`category` varchar(500) DEFAULT NULL,"+
-        "`build_date` varchar(500) DEFAULT NULL,"+
-        "`input_qty` varchar(500) DEFAULT NULL,"+
-        "`side/line` varchar(500) DEFAULT NULL,"+
-        "`shift/side` varchar(500) DEFAULT NULL,"+
-        "`A-Datum Adhesive_Vendor` text,"+
-        "`CG_Vendor` text,"+
-        "`CG Sub_Vendor` text,"+
-        "`Housing_Vendor` text,"+
-        "`A-Datum Adhesive_OEM PN` text,"+
-        "`CG_OEM PN` text,"+
-        "`CG Sub_OEM PN` text,"+
-        "`Housing_OEM PN` text,"+
-        "`A-Datum Adhesive_Apple PN-Rev` text,"+
-        "`CG_Apple PN-Rev` text,"+
-        "`CG Sub_Apple PN-Rev` text,"+
-        "`Housing_Apple PN-Rev` text,"+
-        "`A-Datum Adhesive_Component Config` text,"+
-        "`CG_Component Config` text,"+
-        "`CG Sub_Component Config` text,"+
-        "`Housing_Component Config` text,"+
-        "`Recipe_Vendor` varchar(50) DEFAULT NULL,"+
-        "`Recipe_OEM PN` varchar(50) DEFAULT NULL,"+
-        "`Recipe_Apple PN-Rev` varchar(50) DEFAULT NULL,"+
-        "`Recipe_Component Config` varchar(50) DEFAULT NULL,"+
-        "`A-Datum Adhesive_SN` text,"+
-        "`CG_SN` text,"+
-        "`CG Sub_SN` text,"+
-        "`Housing_SN` text,"+
-        "`HSGA_SN` text,"+
-        "`groupId` varchar(200) DEFAULT NULL,"+
+        "`wo_type` varchar(50) DEFAULT NULL,"+
+        "`plant_code` varchar(50) DEFAULT NULL,"+
+        //"`vendor_pn` varchar(50) DEFAULT NULL,"+
+        //"`hhpn` varchar(50) DEFAULT NULL,"+
+        "`plan_qty` varchar(50) DEFAULT NULL,"+
+        "`config` varchar(50) DEFAULT NULL,"+
+        "`build_name` varchar(50) DEFAULT NULL,"+
+        "`vendor_code` varchar(50) DEFAULT NULL,"+
+        "`date_code` varchar(50) DEFAULT NULL,"+
+        //"`build_id` varchar(50) DEFAULT NULL,"+
+        //"`config` varchar(50) DEFAULT NULL,"+ //configs?
+        //"`color` varchar(500) DEFAULT NULL,"+ //TODO
+        //"`component_type` varchar(500) DEFAULT NULL,"+ //category?
+        //"`build_date` varchar(500) DEFAULT NULL,"+
+        //"`input_qty` varchar(500) DEFAULT NULL,"+ //input_qty? //TODO
+        //"`side/line` varchar(500) DEFAULT NULL,"+ //?
+        //"`shift/side` varchar(500) DEFAULT NULL,"+ //?
+//      vendor, oem_pn, component_config, sn //hhpn?
+        "`component_info` json DEFAULT NULL,"+
         "PRIMARY KEY (`data_set_id`,`product`,`sn`,`value_rank`)"+
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
 
-//      val datasetBigtableColumnStr = "data_set_name,data_set_id,product,sn,sn_type,value_rank,station_info,item_info"
-//        "wo," +
-//        "floor,hhpn,build_id,configs,unit_color,category,build_date,input_qty,side/line,shift/side," +
-//        "A-Datum Adhesive_Vendor,CG_OEM PN," +
-//        ""
 
-//      "V1NO1B#629@vender":"",
-//
-      testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.withColumnRenamed("name","data_set_name")
+      testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
+        .withColumnRenamed("name","data_set_name")
         .withColumnRenamed("id","data_set_id")
 
-//      val datasetIdDF = testDeailResultGroupByFirstDf.select("data_set_id").dropDuplicates("data_set_id")
-//      val idList = datasetIdDF.map(_.getString(0)).collect.toList
-//      for (id <- idList) {
-//        //create dataset bigtable schema
-//        val createSql = "CREATE TABLE IF NOT EXISTS `data_set_bigtable@"+id+"` ("+ schema
-//        mariadbUtils.execSqlToMariadb(createSql)
-//        //truncate dataset bigtable schema
-//        val truncateSql = "TRUNCATE TABLE `data_set_bigtable@"+id+"`"
-//        mariadbUtils.execSqlToMariadb(truncateSql)
-//        //insert 大表資料
-//        mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf.filter(col("data_set_id").equalTo(id)),
-//          "`data_set_bigtable@"+id+"`", numExecutors)
-//        //update dataset 設定的欄位
-//        val updateSql = "UPDATE data_set_setting"+" SET bt_name='data_set_bigtable@"+id+"'," +
-//        " bt_create_time = COALESCE(bt_create_time, '"+jobStartTime+"')," +
-//        " bt_last_time = '" + jobStartTime + "'," +
-//        " bt_next_time = '" + nextExcuteTime + "'" +
-//        " WHERE id = " + id
-//
-//        mariadbUtils.execSqlToMariadb(updateSql)
-//      }
+      val datasetIdDF = testDeailResultGroupByFirstDf.select("data_set_id").dropDuplicates("data_set_id")
+      val idList = datasetIdDF.map(_.getString(0)).collect.toList
+      for (id <- idList) {
+        //drop dataset bigtable
+        val dropSql = "DROP TABLE `data_set_bigtable@"+id+"`"
+        mariadbUtils.execSqlToMariadb(dropSql)
+        //truncate dataset bigtable schema
+        val createSql = "CREATE TABLE `data_set_bigtable@"+id+"` ("+ schema
+        mariadbUtils.execSqlToMariadb(createSql)
+        //insert 大表資料
+        mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf.filter(col("data_set_id").equalTo(id)),
+          "`data_set_bigtable@"+id+"`", numExecutors)
+        //update dataset 設定的欄位
+        val updateSql = "UPDATE data_set_setting"+" SET bt_name='data_set_bigtable@"+id+"'," +
+        " bt_create_time = COALESCE(bt_create_time, '"+jobStartTime+"')," +
+        " bt_last_time = '" + jobStartTime + "'," +
+        " bt_next_time = '" + nextExcuteTime + "'" +
+        " WHERE id = " + id
+        mariadbUtils.execSqlToMariadb(updateSql)
 
-
+      }
 
     } catch {
       case ex: FileNotFoundException => {
