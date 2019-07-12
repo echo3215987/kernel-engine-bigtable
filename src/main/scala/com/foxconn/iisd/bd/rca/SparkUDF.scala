@@ -73,10 +73,15 @@ object SparkUDF{
     //判斷是第一筆還最後一筆
     def getFirstOrLastRow = udf {
         (first: Int, last: Int) =>{
-            var value = ""
-            if(first == 1) value = "first"
+            var value = Seq[String]()
+            if(first == 1 && last == 1){
+                value = value ++ Seq("first", "last")
+                //value :+ "last"
+            }
+            else if(first == 1)
+                value = value :+ "first"
             else
-                value = "last"
+                value = value :+ "last"
             value
         }
 
@@ -101,10 +106,13 @@ object SparkUDF{
         (station_name: String, item: Seq[String], test_value:String) =>{
             val jsonMap = parse(test_value).values.asInstanceOf[Map[String, Any]]
             item.map(i=>{
-                var value = jsonMap.apply(i)
-                if(value != null)
-                    value = "\"" + value + "\""
-                "\"" + station_name + "@" + i +"\":" + value
+                if(jsonMap.contains(i)){
+                    var value = jsonMap.apply(i)
+                    if(value != null)
+                        value = "\"" + value + "\""
+                    "\"" + station_name + "@" + i +"\":" + value
+                }else
+                    "\"" + station_name + "@" + i +"\":" + null
             }).mkString(",")
 
         }
@@ -112,7 +120,24 @@ object SparkUDF{
     //轉換工站與測項 array to string
     def transferArrayToString = udf {
         (arr: Seq[String]) =>{
-            "{" + arr.mkString(",")+ "}"
+            if(arr != null) "{" + arr.mkString(",")+ "}"
+            else null
+        }
+    }
+
+    //組成map data type
+    def createMap = udf {
+        (station_name: String, station_attribute: String, station_value:String) =>{
+            Map[String, String](station_name+"@"+station_attribute->station_value)
+        }
+    }
+
+
+    //將符合的json key展開成一個新的欄位
+    def getJsonKeyValueToNewColumn = udf {
+        (json: String, key: String) =>{
+            println(json)
+            json
         }
     }
 }

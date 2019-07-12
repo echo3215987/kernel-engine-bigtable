@@ -75,6 +75,10 @@ class MariadbUtils {
         return spark.read.jdbc(this.getMariadbUrl(), table, this.getMariadbConnectionProperties())
     }
 
+    def getDfFromMariadb(spark: SparkSession, table: String, predicates: Array[String]): DataFrame = {
+        return spark.read.jdbc(this.getMariadbUrl(), table, predicates, this.getMariadbConnectionProperties())
+    }
+
     def execSqlToMariadb(sql: String): Unit = {
         val conn = this.getConn()
 

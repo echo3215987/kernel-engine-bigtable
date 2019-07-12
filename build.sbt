@@ -19,6 +19,7 @@ resolvers ++= Seq(
     "Maven2" at "http://central.maven.org/maven2/"
 )
 
+
 //enablePlugins(JavaAppPackaging)
 
 dependencyOverrides ++= Seq(
@@ -92,3 +93,4 @@ assemblyMergeStrategy in assembly := {
 //artifactName := { (sv: ScalaVersion, module: ModuleID, artifact: Artifact) =>
 //    module.name + "." + artifact.name + "." + module.revision + "." + artifact.classifier
 //}
+

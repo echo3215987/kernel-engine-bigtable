@@ -1,9 +1,10 @@
 package com.foxconn.iisd.bd.rca
 
 import java.net.URI
-import java.sql.{Connection, DriverManager, ResultSet, PreparedStatement}
+import java.sql.{Connection, DriverManager, PreparedStatement, ResultSet}
 import java.util
 import java.util.Properties
+import java.io.FileNotFoundException
 
 import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
 import org.apache.hadoop.fs._
@@ -13,6 +14,43 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import scala.io.Source
 
 object IoUtils {
+
+    private def getCockroachdbUrl(): String = {
+        return configLoader.getString("cockroachdb", "conn_str")
+    }
+
+    private def getCockroachdbSSLMode(): String = {
+        return configLoader.getString("cockroachdb", "sslmode")
+    }
+
+    private def getCockroachdbUser(): String = {
+        return configLoader.getString("cockroachdb", "username")
+    }
+
+    private def getCockroachdbPassword(): String = {
+        return configLoader.getString("cockroachdb", "password")
+    }
+
+    private def getCockroachdbConnectionProperties(): Properties ={
+        val _cockroachdbConnectionProperties = new Properties()
+
+        _cockroachdbConnectionProperties.put(
+            "user",
+            configLoader.getString("cockroachdb", "username")
+        )
+
+        _cockroachdbConnectionProperties.put(
+            "password",
+            configLoader.getString("cockroachdb", "password")
+        )
+
+        _cockroachdbConnectionProperties.put(
+            "sslmode",
+            configLoader.getString("cockroachdb", "sslmode")
+        )
+
+        return _cockroachdbConnectionProperties
+    }
 
     def flatMinioFiles(spark: SparkSession, flag:String, srcPathStr: String, fileLimits: Integer): Path = {
         var count = 0
@@ -26,7 +64,7 @@ object IoUtils {
             fileSystem.mkdirs(destPath)
         }
 
-        //try {
+        try {
             val wipPathFiles = fileSystem.listFiles(srcPath, true)
             while (count < fileLimits && wipPathFiles.hasNext()) {
                 val file = wipPathFiles.next()
@@ -45,20 +83,18 @@ object IoUtils {
 
                 }
             }
-        /*} catch {
+        } catch {
             case ex: FileNotFoundException => {
                 //                ex.printStackTrace()
                 println("===> FileNotFoundException !!!")
             }
-        }*/
+        }
         return destPath
     }
 
     def getDfFromPath(spark: SparkSession, path: String, columns: String, dataSeperator: String): DataFrame = {
 
-        val schema = StructType(columns
-          .split(",")
-          .map(fieldName => StructField(fieldName,StringType, true)))
+        val schema = createStringSchema(columns)
 
         val rdd = spark
           .sparkContext
@@ -80,51 +116,22 @@ object IoUtils {
         return spark.createDataFrame(rdd, schema)
     }
 
-//    def getDfFromCockroachdb(spark: SparkSession, table: String): DataFrame = {
-//
-//        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
-//        val cockroachdbConnectionProperties = new Properties()
-//
-//        cockroachdbConnectionProperties.put(
-//            "user",
-//            configLoader.getString("cockroachdb", "username")
-//        )
-//
-//        cockroachdbConnectionProperties.put(
-//            "password",
-//            configLoader.getString("cockroachdb", "password")
-//        )
-//
-//        cockroachdbConnectionProperties.put(
-//            "sslmode",
-//            configLoader.getString("cockroachdb", "sslmode")
-//        )
-//
-//        return spark.read.jdbc(cockroachdbUrl, table, cockroachdbConnectionProperties)
-//    }
-
     def getDfFromCockroachdb(spark: SparkSession, table: String, predicates: Array[String]): DataFrame = {
-
-        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
-        val cockroachdbConnectionProperties = new Properties()
-
-        cockroachdbConnectionProperties.put(
-            "user",
-            configLoader.getString("cockroachdb", "username")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "password",
-            configLoader.getString("cockroachdb", "password")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "sslmode",
-            configLoader.getString("cockroachdb", "sslmode")
-        )
-
-        return spark.read.jdbc(cockroachdbUrl, table, predicates, cockroachdbConnectionProperties)
+        return spark.read.jdbc(this.getCockroachdbUrl(), table, predicates, this.getCockroachdbConnectionProperties())
     }
+
+    def getDfFromCockroachdb(spark: SparkSession, query: String): DataFrame = {
+        return spark.read.format("jdbc")
+          .option("url", this.getCockroachdbUrl())
+//          option("numPartitions", numPartitions)
+//          .option("partitionColumn", primaryKey)
+          .option("sslmode", this.getCockroachdbSSLMode())
+          .option("user", this.getCockroachdbUser())
+          .option("password", this.getCockroachdbPassword())
+          .option("query", query)
+          .load()
+    }
+
 
     def getRowFromResultSet(resultSet: ResultSet, colCount: Int): Row ={
         var i : Int = 1
@@ -142,40 +149,15 @@ object IoUtils {
 
     def getDfFromCockroachdb(spark: SparkSession, selectArr: List[String], columns: String, selectSqlColumnName:String, selectSql: String): DataFrame = {
 
-        val schema = StructType(columns
-          .split(",")
-          .map(fieldName => StructField(fieldName,StringType, true)))
-
-
-        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
-        val cockroachdbConnectionProperties = new Properties()
-
-        cockroachdbConnectionProperties.put(
-            "user",
-            configLoader.getString("cockroachdb", "username")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "password",
-            configLoader.getString("cockroachdb", "password")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "sslmode",
-            configLoader.getString("cockroachdb", "sslmode")
-        )
-        cockroachdbConnectionProperties.put(
-            "allowEncodingChanges",
-            "true"
-        )
+        val schema = createStringSchema(columns)
 
         var df = spark.emptyDataFrame
         var i = 0
         for (whereSql <- selectArr){
 
             val conn = DriverManager.getConnection(
-                cockroachdbUrl,
-                cockroachdbConnectionProperties)
+                this.getCockroachdbUrl,
+                this.getCockroachdbConnectionProperties)
 
             conn.setAutoCommit(false)
 
@@ -203,28 +185,6 @@ object IoUtils {
     }
 
     def saveToCockroachdb(df: DataFrame, table: String, numExecutors: Int): Unit = {
-        val cockroachdbUrl = configLoader.getString("cockroachdb", "conn_str")
-        val cockroachdbConnectionProperties = new Properties()
-
-        cockroachdbConnectionProperties.put(
-            "user",
-            configLoader.getString("cockroachdb", "username")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "password",
-            configLoader.getString("cockroachdb", "password")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "sslmode",
-            configLoader.getString("cockroachdb", "sslmode")
-        )
-
-        cockroachdbConnectionProperties.put(
-            "allowEncodingChanges",
-            "true"
-        )
 
         val sqlPrefix =
             "UPSERT INTO " + table +
@@ -240,8 +200,8 @@ object IoUtils {
             partition => {
 
                 val conn = DriverManager.getConnection(
-                    cockroachdbUrl,
-                    cockroachdbConnectionProperties)
+                    this.getCockroachdbUrl,
+                    this.getCockroachdbConnectionProperties)
 
                 conn.setAutoCommit(false)
 
@@ -292,45 +252,6 @@ object IoUtils {
             }
         }
     }
-
-//    def getFilesRows(spark: SparkSession, minioTempPath: Path): util.HashMap[String, Integer] = {
-//        var filesRowsMap = new util.HashMap[String, Integer]
-//        try {
-//            val fileSystem = FileSystem.get(URI.create(minioTempPath.toString), spark.sparkContext.hadoopConfiguration)
-//            val pathFiles = fileSystem.listFiles(minioTempPath, true)
-//            var count = 0
-//            while (pathFiles.hasNext()) {
-//                val file = pathFiles.next()
-//                val filename = file.getPath.getName
-//                val tmpFilePath = new Path(minioTempPath, filename)
-//                val inputStream = fileSystem.open(tmpFilePath)
-//                val reader = new BufferedReader(new InputStreamReader(inputStream))
-//                var line = reader.readLine
-//                var rows = 0
-//                while(line != null) {
-//                    rows = rows + 1
-//                    line = reader.readLine()
-//                }
-//
-//                println("rows: " + rows)
-//                filesRowsMap.put(filename, rows)
-//
-//                if(reader != null){
-//                    reader.close()
-//                }
-//
-//                count = count + 1
-//                Thread.sleep(2000)
-//            }
-//            println("count: " + count)
-//
-//        } catch {
-//            case ex: Exception => {
-//                println("exception : " + ex.getMessage)
-//            }
-//        }
-//        filesRowsMap
-//    }
 
     def getFilesNameList(spark: SparkSession, minioTempPath: Path): util.ArrayList[String] = {
         var filesNameList = new util.ArrayList[String]
@@ -414,6 +335,40 @@ object IoUtils {
         finally {
             writer.close()
         }
+    }
+
+    //parse data type
+    def castColumnDataType(col: String) = {
+        var datatype = "string"
+        if(col != null){
+            try {
+                if (col.indexOf(".") > 0) {
+                    //float
+                    var value = col.toFloat
+                    if (value.isInstanceOf[Float]) {
+                        datatype = "float"
+                    }
+                } else {
+                    //int
+                    var value = col.toInt
+                    if (value.isInstanceOf[Int]) {
+                        datatype = "int"
+                    }
+                }
+            }catch{
+                case ex: Exception => {
+                    // ex.printStackTrace()
+                    println("===> cast data type Exception !!!")
+                }
+            }
+        }
+        datatype
+    }
+
+    def createStringSchema(columnNames: String) = {
+        StructType(columnNames
+          .split(",")
+          .map(fieldName => StructField(fieldName,StringType, true)))
     }
 
 }

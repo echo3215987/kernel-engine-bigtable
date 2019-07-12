@@ -88,6 +88,8 @@ minio_log_path:
     test_detail_path: "{{data_base_path}}/TEST_DETAIL"
     test_detail_file_limits: "1"
 
+    dataset_path: "{{data_base_path}}/DATASET"
+
 summary_log_path:
     data_base_path: "s3a://rca-dev/IPPD-L10/Summary"
     tag: "KE"
@@ -114,7 +116,7 @@ log_prop:
     test_detail_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,create_time,update_time,station_name,start_date,product,test_version"
     test_detail_table: "test_detail"
     test_detail_dt_fmt: "yyyy-MM-dd HH:mm:ss"
-
+    test_detail_filter_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,create_time,update_time,station_name,start_date,product,test_version,test_value,"
     #CHEB_||_296269793_||_CEB1_||_V1N01B#629_||_V1N01B#629_||_V1N01B#629_||_1_||_CHEB_WO_20190524171446.dat_||_SOR_||_ZFRT_||__||_HP DeskJet 2620 All-in-One Printer_||_20190523_||_P2_||_20190523
     #SELECT product, build_name, file_name, wo, wo_type, plant_code, vendor_pn, hhpn, plan_qty, config, component_type, main_wo, upsert_time
     wo_col: "plant_code,wo,wo_type,hhpn,vendor_pn,config,plan_qty,file_name,build_name,component_type,main_wo,product,releasedate,prodversion,createDate"
@@ -155,3 +157,9 @@ test_floor_line:
 
 taiji_base:
     code: "06MD,06PK,06PN,06P4,06PP,06PS,06PT,06PV,06PX,06PY,06PZ,06Q2,06Q3,06Q4,06Q7,06Q8,06Q9,06QD,070W,070X"
+
+dataset:
+    sdf_format: "M/dd/yyyy,dd.M.yyyy,M/dd/yyyy hh:mm:ss a,dd.M.yyyy hh:mm:ss a,dd.MMM.yyyy,dd-MMM-yyyy"
+    bigtable_datatype_table: "data_set_bigtable_columns"
+    station_info_col: "build_description,unit_number,station_id,test_status,test_starttime,list_of_failure,test_version"
+    component_info_col: "vendor,hhpn,oempn,component_type,input_qty,partsn,vendor_code,date_code"
