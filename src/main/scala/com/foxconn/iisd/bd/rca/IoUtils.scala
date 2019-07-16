@@ -6,8 +6,10 @@ import java.util
 import java.util.Properties
 import java.io.FileNotFoundException
 
+import com.foxconn.iisd.bd.rca.SparkUDF.genStaionJsonFormat
 import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
 import org.apache.hadoop.fs._
+import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
@@ -370,5 +372,4 @@ object IoUtils {
           .split(",")
           .map(fieldName => StructField(fieldName,StringType, true)))
     }
-
 }

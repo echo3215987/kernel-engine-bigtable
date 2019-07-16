@@ -94,29 +94,34 @@ object SparkUDF{
         }
     }
 
-    //merge station的相關欄位
-    def genStaionInfo = udf {
+    //merge station/item的相關欄位
+    def genInfo = udf {
         (station_info: Seq[String], station_json_value: Seq[String]) =>{
             station_info ++ station_json_value
         }
     }
 
-    //merge item的相關欄位
-    def genItemInfo = udf {
-        (station_name: String, item: Seq[String], test_value:String) =>{
+    //將item的每個欄位組成json value的方式
+    def genItemJsonFormat = udf {
+        (station_name: String, item: Seq[String], test_value:String, columnName:String) =>{
+            var resultColumnName = ""
+            if(columnName.equals("test_item_result") || columnName.equals("test_item_result_detail"))
+                resultColumnName = columnName.replace("test_item_", "@")
             val jsonMap = parse(test_value).values.asInstanceOf[Map[String, Any]]
             item.map(i=>{
                 if(jsonMap.contains(i)){
                     var value = jsonMap.apply(i)
                     if(value != null)
                         value = "\"" + value + "\""
-                    "\"" + station_name + "@" + i +"\":" + value
+                    "\"" + station_name + "@" + i + resultColumnName +"\":" + value
                 }else
-                    "\"" + station_name + "@" + i +"\":" + null
+                    "\"" + station_name + "@" + i + resultColumnName +"\":" + null
             }).mkString(",")
 
         }
     }
+
+
     //轉換工站與測項 array to string
     def transferArrayToString = udf {
         (arr: Seq[String]) =>{
