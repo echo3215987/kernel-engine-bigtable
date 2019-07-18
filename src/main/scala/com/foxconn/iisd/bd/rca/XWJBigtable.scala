@@ -195,7 +195,7 @@ println(selectSql)
       val selectSqlList = testdetailDF.select("whereSql").map(_.getString(0)).collect.toList
       val testDeailResultDf = IoUtils.getDfFromCockroachdb(spark, selectSqlList,
         testdetailFilterColumnStr, "whereSql", selectSql)
-testDeailResultDf.show(false)
+//testDeailResultDf.show(false)
       //group by sn, staion_name, order by test_starttime
       val wSpecTestDetailAsc = Window.partitionBy(col("sn"), col("station_name"))
         .orderBy(asc("test_starttime"))
@@ -278,7 +278,7 @@ testDeailResultDf.show(false)
        .join(datasetGroupByProductIdDF.select("id", "name", "product"), Seq("id"), "left")
 //      新增sn_type, 紀錄是整機還是非整機測試(比對測試明細sn vs unit_number), 目前先維持定值, 之後有需要分整機或非整機測試再處理
        .withColumn("sn_type", lit("wip"))//unit
-testDeailResultGroupByFirstDf.show(false)
+//testDeailResultGroupByFirstDf.show(false)
 
       //組裝主表撈出sn對應的wo
       val snList = testDeailResultGroupByFirstDf.select("sn").dropDuplicates().map(_.getString(0)).collect.toList
@@ -412,15 +412,15 @@ testDeailResultGroupByFirstDf.show(false)
       woDf = partMasterDf.select("wo", "floor", "scantime").join(woDf, Seq("wo"), "left")
       woDf = woDf.join(datasetComponentDF, Seq("config"), "left")
 
-partMasterDf.show(false)
-woDf.show(false)
+//partMasterDf.show(false)
+//woDf.show(false)
 
       //join 工單與關鍵物料
       testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
         .join(woDf, Seq("id", "sn"), "left")
         .withColumn(component_info_str, transferArrayToString(col(component_info_str)))
 
-      testDeailResultGroupByFirstDf.show(25, false)
+  testDeailResultGroupByFirstDf.show(25, false)
 
       //create dataset bigtable schema
       var schema = "`data_set_name` varchar(200) Not NULL,"+
@@ -540,9 +540,11 @@ woDf.show(false)
           )
 
           datasetOutputCsvDF = datasetOutputCsvDF.withColumn(jsonInfo, from_json(col(jsonInfo), schema))
-
+//          datasetOutputCsvDF.printSchema()
           for (column <- infoFielids) {
-            datasetOutputCsvDF = datasetOutputCsvDF.withColumn(column, col(jsonInfo+"."+column))
+//            println(jsonInfo+"."+column)
+//            datasetOutputCsvDF = datasetOutputCsvDF.withColumn(column, col(jsonInfo+"."+column))
+            datasetOutputCsvDF = datasetOutputCsvDF.withColumn(column, col(jsonInfo).getItem(column))
           }
         }
 
