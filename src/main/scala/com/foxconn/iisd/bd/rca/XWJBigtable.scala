@@ -151,14 +151,11 @@ object XWJBigtable {
       val datasetDf = mariadbUtils.execSqlToMariadbToDf(spark, datasetSql, datasetColumnStr)
         .filter($"item".isNotNull.and($"station".isNotNull).and($"component".isNotNull))
 
-//      val temp = datasetColumnStr.split(",")
-//      datasetDf.selectExpr(temp: _*).show
-
       val datasetGroupByProductIdDF = datasetDf.groupBy("product", "id", "name")
         .agg(collect_set("station").as("station"),
         collect_set("item").as("item"),
           collect_set("component").as("component"))
-datasetGroupByProductIdDF.show(false)
+datasetGroupByProductIdDF.select("product", "id", "station", "item").show(false)
 
       val productList = datasetGroupByProductIdDF.select("product").dropDuplicates().map(_.getString(0)).collect.toList
       val stationList = datasetGroupByProductIdDF.selectExpr("explode(station)").dropDuplicates().map(_.getString(0)).collect.toList
@@ -183,14 +180,14 @@ datasetGroupByProductIdDF.show(false)
       //test value
       testdetailDF = testdetailDF.withColumn("selectSql",
         genTestDetailItemSelectSQL(lit("test_value"), col("item")))
-testdetailDF.select("selectSql").show(false)
+//testdetailDF.select("selectSql").show(false)
 
       //testdetail filter sql
       var testdetailFilterColumnStr = configLoader.getString("log_prop", "test_detail_filter_col")
 
       testdetailFilterColumnStr = testdetailFilterColumnStr + testdetailDF.select("selectSql").first().mkString("").toString()
       val selectSql = "select " + testdetailFilterColumnStr + " from test_detail"
-
+println(selectSql)
       testdetailDF = testdetailDF.withColumn("whereSql",
         genTestDetailWhereSQL(col("product"), col("station"), col("item")))
 
@@ -198,7 +195,7 @@ testdetailDF.select("selectSql").show(false)
       val selectSqlList = testdetailDF.select("whereSql").map(_.getString(0)).collect.toList
       val testDeailResultDf = IoUtils.getDfFromCockroachdb(spark, selectSqlList,
         testdetailFilterColumnStr, "whereSql", selectSql)
-
+testDeailResultDf.show(false)
       //group by sn, staion_name, order by test_starttime
       val wSpecTestDetailAsc = Window.partitionBy(col("sn"), col("station_name"))
         .orderBy(asc("test_starttime"))
@@ -281,7 +278,7 @@ testdetailDF.select("selectSql").show(false)
        .join(datasetGroupByProductIdDF.select("id", "name", "product"), Seq("id"), "left")
 //      新增sn_type, 紀錄是整機還是非整機測試(比對測試明細sn vs unit_number), 目前先維持定值, 之後有需要分整機或非整機測試再處理
        .withColumn("sn_type", lit("wip"))//unit
-//testDeailResultGroupByFirstDf.show(false)
+testDeailResultGroupByFirstDf.show(false)
 
       //組裝主表撈出sn對應的wo
       val snList = testDeailResultGroupByFirstDf.select("sn").dropDuplicates().map(_.getString(0)).collect.toList

@@ -1,21 +1,20 @@
 spark:
-    job_name: "dev-local-xwj-KernelEngineBigTable"
+    job_name: "staging-xwj-KernelEngineBigTable"
     master: "local"
     conf: "spark.driver.memory=2g;
-           spark.executor.memory=2g"
+           spark.executor.memory=4g"
 
 minio:
     endpoint:   "http://10.57.232.167:31359"
     accessKey:  "AKIAIOSFODNN7EXAMPLE"
     secretKey:  "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-    bucket:     "rca-dev"
+    bucket:     "rca-staging"
 
 cockroachdb:
     adapter:    "postgresql"
     host:       "10.57.232.61"
     port:       "26257"
     sslmode:    "require"
-    #database:   "rca-dev"
     database:   "rca-ipbd-lx-printer"
     username:   "bigdata"
     password:   "bigdata"
@@ -25,7 +24,6 @@ mariadb:
     adapter:    "mysql"
     host:       "10.57.232.61"
     port:       "3308"
-    #database:   "rca-dev"
     database:   "rca-staging-ipbd-lx-printer"
     username:   "edgeserver"
     password:   "Foxconn123654!@"
@@ -71,7 +69,7 @@ local_log_path:
     test_detail_file_limits: "1"
 
 minio_log_path:
-    data_base_path: "s3a://rca-dev/IPPD-L10/Data"
+    data_base_path: "s3a://rca-staging/IPPD-L10/Data"
     wip_path: "{{data_base_path}}/SFC/R_WIP_SFC/"
     wip_parts_path: "{{data_base_path}}/SFC/R_WIP_PARTS_SFC/"
     bobcat_path: "{{data_base_path}}/Bobcat/"

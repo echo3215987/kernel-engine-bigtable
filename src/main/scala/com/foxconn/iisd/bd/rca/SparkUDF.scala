@@ -107,9 +107,13 @@ object SparkUDF{
             var resultColumnName = ""
             if(columnName.equals("test_item_result") || columnName.equals("test_item_result_detail"))
                 resultColumnName = columnName.replace("test_item_", "@")
-            val jsonMap = parse(test_value).values.asInstanceOf[Map[String, Any]]
+            var jsonMap: Map[String, String] = null
+            if(test_value != null) {
+                jsonMap = parse(test_value).values.asInstanceOf[Map[String, String]]
+            }
+            //val jsonMap = parse(test_value).values.asInstanceOf[Map[String, String]]
             item.map(i=>{
-                if(jsonMap.contains(i)){
+                if(jsonMap != null && jsonMap.contains(i)){
                     var value = jsonMap.apply(i)
                     if(value != null)
                         value = "\"" + value + "\""

@@ -1,5 +1,5 @@
 spark:
-    job_name: "dev-local-xwj-KernelEngineBigTable"
+    job_name: "dev-xwj-KernelEngineBigTable"
     master: "local"
     conf: "spark.driver.memory=2g;
            spark.executor.memory=2g"
@@ -88,6 +88,8 @@ minio_log_path:
     test_detail_path: "{{data_base_path}}/TEST_DETAIL"
     test_detail_file_limits: "1"
 
+    dataset_path: "{{data_base_path}}/DATASET"
+
 summary_log_path:
     data_base_path: "s3a://rca-dev/IPPD-L10/Summary"
     tag: "KE"
@@ -110,10 +112,12 @@ log_prop:
     bobcat_table: "test"
     bobcat_dt_fmt: "yyyy-MM-dd HH:mm:ss"
 
-    #CN95I870ZC06MD_||_SOR_||_SOR_||_CN95I870ZC06MD_||_L7_TLEOL_06_||_Exception_||_2019/05/18 06:36_||_2019/05/18 06:36_||_PcaVerifyFirmwareRev_||_Error_||_MP_||__||_CQ_||_D62_||_2_||_ProcPCClockSync^DResultInfo^APcaVerifyFirmwareRev^DResultInfo^APcaVerifyFirmwareRev^DExpectedVersion^APcaVerifyFirmwareRev^DReadVersion^APcaVerifyFirmwareRev^DDateTimeStarted^APcaVerifyFirmwareRev^DActualFWUpdate^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^C^APcaVerifyFirmwareRev^DDateTimeStarted^C5/18/2019 5:29:48 AM^APcaVerifyFirmwareRev^DActualFWUpdate^C^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^C^APcaVerifyFirmwareRev^DDateTimeStarted^C^APcaVerifyFirmwareRev^DActualFWUpdate^C^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^CTJP1FN1845AR^APcaVerifyFirmwareRev^DDateTimeStarted^C^APcaVerifyFirmwareRev^DActualFWUpdate^C169^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_ProcPCClockSync^DResultInfo^C^APcaVerifyFirmwareRev^DResultInfo^C^APcaVerifyFirmwareRev^DExpectedVersion^C^APcaVerifyFirmwareRev^DReadVersion^CTJP1FN1845AR^APcaVerifyFirmwareRev^DDateTimeStarted^C^APcaVerifyFirmwareRev^DActualFWUpdate^C169^APcaVerifyFirmwareRev^DFWUpdateDSIDFirst^C_||_2019/05/18 06:36_||_2019/05/18 06:36_||_TLEOL_||_2019/05/18 06:36_||_TaiJi Base_||_42.3.8 REV_37_Taiji25
-    test_detail_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,create_time,update_time,station_name,start_date,product,test_version"
+    #CN96E8B2HW06MD_||_SOR_||_SOR_||_CN96E8B2HW06MD_||_LB_TLEOL_02_||_exception_||_2019-06-14 02:18:53_||_2019-06-14 02:18:53_||_ProcVerifyComm_Wudang_||_Error: Not an object reference.&amp;#xA;in ProcVerifyComm_Wudang step._||_MP_||_null_||_CQ_||_D62_||_3_||_ProcPCClockSyncResultInfoProcVerifyComm_WudangResultInfo_||_ProcPCClockSyncResultInfoProcVerifyComm_WudangResultInfo_||_ProcPCClockSyncResultInfoProcVerifyComm_WudangResultInfo_||_ProcPCClockSyncResultInfoProcVerifyComm_WudangResultInfo_||_ProcPCClockSyncResultInfoProcVerifyComm_WudangResultInfo_||_ProcPCClockSyncResultInfopassProcVerifyComm_WudangResultInfoexception_||_ProcPCClockSyncResultInfoProcVerifyComm_WudangResultInfoError: Not an object reference.&amp;#xA;in ProcVerifyComm_Wudang step._||_2019-06-14 02:18:53_||_2019-06-14 02:18:53_||_TLEOL_||_2019-06-14 02:18:53_||_TaiJi Base_||_42.3.8 REV_37_Taiji28
+    #    test_detail_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,create_time,update_time,station_name,start_date,product,test_version"
+    test_detail_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,test_item_result,test_item_result_detail,create_time,update_time,station_name,start_date,product,test_version"
     test_detail_table: "test_detail"
     test_detail_dt_fmt: "yyyy-MM-dd HH:mm:ss"
+    test_detail_filter_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,create_time,update_time,station_name,start_date,product,test_version,test_value,test_item_result,test_item_result_detail,"
 
     #CHEB_||_296269793_||_CEB1_||_V1N01B#629_||_V1N01B#629_||_V1N01B#629_||_1_||_CHEB_WO_20190524171446.dat_||_SOR_||_ZFRT_||__||_HP DeskJet 2620 All-in-One Printer_||_20190523_||_P2_||_20190523
     #SELECT product, build_name, file_name, wo, wo_type, plant_code, vendor_pn, hhpn, plan_qty, config, component_type, main_wo, upsert_time
@@ -155,3 +159,11 @@ test_floor_line:
 
 taiji_base:
     code: "06MD,06PK,06PN,06P4,06PP,06PS,06PT,06PV,06PX,06PY,06PZ,06Q2,06Q3,06Q4,06Q7,06Q8,06Q9,06QD,070W,070X"
+
+dataset:
+    sdf_format: "M/dd/yyyy,dd.M.yyyy,M/dd/yyyy hh:mm:ss a,dd.M.yyyy hh:mm:ss a,dd.MMM.yyyy,dd-MMM-yyyy"
+    bigtable_datatype_table: "data_set_bigtable_columns"
+    station_info_col: "build_description,unit_number,station_id,test_status,test_starttime,list_of_failure,test_version"
+    item_info_col: "test_value,test_item_result,test_item_result_detail"
+    component_info_col: "vendor,hhpn,oempn,component_type,input_qty,partsn,vendor_code,date_code"
+    part_detail_col: "partsn,vendor_code,date_code,part"
