@@ -154,7 +154,7 @@ class MariadbUtils {
               "(" + df.columns.mkString(",") + ")" +
               " VALUES "
 
-        val batchSize = 2000
+        val batchSize = 50
         val repartitionSize = numExecutors
 
         df.rdd.repartition(repartitionSize).foreachPartition{
