@@ -186,6 +186,32 @@ object IoUtils {
         df
     }
 
+    def getDfFromCockroachdb(spark: SparkSession, columns: String, sql: String): DataFrame = {
+
+        val schema = createStringSchema(columns)
+
+        val conn = DriverManager.getConnection(
+            this.getCockroachdbUrl,
+            this.getCockroachdbConnectionProperties)
+
+        conn.setAutoCommit(false)
+
+        val rs = conn.createStatement().executeQuery(sql)
+        val columnCnt: Int = rs.getMetaData.getColumnCount
+
+        val resultSetRow = Iterator.continually((rs.next(), rs)).takeWhile(_._1).map(
+            r => {
+                getRowFromResultSet(r._2, columnCnt) // (ResultSet) => (spark.sql.Row)
+            }).toList
+
+        val rdd = spark.sparkContext.makeRDD(resultSetRow)
+
+        conn.commit()
+        conn.close()
+
+        spark.createDataFrame(rdd, schema)
+    }
+
     def saveToCockroachdb(df: DataFrame, table: String, numExecutors: Int): Unit = {
 
         val sqlPrefix =
@@ -371,5 +397,20 @@ object IoUtils {
         StructType(columnNames
           .split(",")
           .map(fieldName => StructField(fieldName,StringType, true)))
+    }
+
+
+    //gen test item select sql
+    def genTestDetailItemSelectSQL(colName:String, item: Seq[String]) = {
+        //test_value->'first_name', test_value->'location'
+        item.map(i=> colName +"->'" + i + "'").mkString(",")
+    }
+
+    //gen where sql
+    def genTestDetailWhereSQL(product: String, station: Seq[String], item: Seq[String]) = {
+        var whereSql = " where product = '" + product + "'"
+        whereSql = whereSql + " and (" + station.map(s=> "station_name='" + s + "'").mkString(" or ") + ")"
+//        whereSql = whereSql + " and (" + item.map(i=> "array_length(array_positions(test_item, '"+ i +"'), 1)>0").mkString(" or ") + ")"
+        whereSql
     }
 }

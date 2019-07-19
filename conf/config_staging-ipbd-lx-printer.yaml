@@ -1,7 +1,7 @@
 spark:
     job_name: "staging-xwj-KernelEngineBigTable"
     master: "local"
-    conf: "spark.driver.memory=2g;
+    conf: "spark.driver.memory=4g;
            spark.executor.memory=4g"
 
 minio:
