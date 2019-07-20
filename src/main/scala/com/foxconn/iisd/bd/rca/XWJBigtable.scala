@@ -300,7 +300,7 @@ currentDatasetDf.show(false)
         val woCondition = "wo in (" + woList.map(s => "'" + s + "'").mkString(",") + ")"
         println(woCondition)
 
-        val woWhereSql = "select * from " + woTable + " where " + woCondition
+        val woWhereSql = "select wo,wo_type,plant_code,plan_qty,config,build_name,release_date from " + woTable + " where " + woCondition
         var woDf = IoUtils.getDfFromCockroachdb(spark, woWhereSql)
 
         //只撈關鍵物料的component
@@ -325,7 +325,7 @@ currentDatasetDf.show(false)
         val partList = partDetailDf.select("part").dropDuplicates().map(_.getString(0)).collect.toList
         val partCondition = "part in (" + partList.map(s => "'" + s + "'").mkString(",") + ")"
         println(partCondition)
-
+//        partsn,vendor_code,date_code,part
         val partDetailColumn = partDetailColumnStr.split(",")
         partDetailDf = partDetailDf
           .withColumn("rank", rank().over(wSpecDetailAsc))
@@ -350,14 +350,16 @@ currentDatasetDf.show(false)
           comConfigList = comConfigList :+ "collect_set(" + attrStr + ")"
         })
 
-        var datasetComponentDF = testDeailResultGroupByFirstDf.select("sn", "component").dropDuplicates()
+        var datasetComponentDF = testDeailResultGroupByFirstDf.select("component").dropDuplicates()
+//          testDeailResultGroupByFirstDf.select("sn", "component").dropDuplicates()
 //            testDeailResultGroupByFirstDf.select("id","sn").dropDuplicates()
 //          .join(currentDatasetDf.select("id","component").dropDuplicates(), Seq("id"))
           .withColumn("component", explode(col("component")))
           .join(comDf, Seq("component"), "left")
 
         //group by 並收斂關鍵物料資訊
-        datasetComponentDF = datasetComponentDF.groupBy("sn", "config")
+        datasetComponentDF = datasetComponentDF.groupBy("config")
+//          datasetComponentDF.groupBy("sn", "config")
           .agg(comConfigMap)
           .withColumn(component_info_str, array())
 
@@ -366,7 +368,7 @@ currentDatasetDf.show(false)
             .withColumn(component_info_str, genInfo(col(component_info_str), col(ele)))
             .drop(ele) //刪除collect_set的多個工站資訊欄位
         })
-
+//        datasetComponentDF.show(false)
         partMasterDf = partMasterDf
           .select("sn", "floor", "scantime", "wo")
           .dropDuplicates()
@@ -381,16 +383,17 @@ currentDatasetDf.show(false)
           .drop("rank")
           .drop("release_date")
           .dropDuplicates("wo")
-        woDf = partMasterDf.select("wo", "floor", "scantime").join(woDf, Seq("wo"), "left")
+        woDf = partMasterDf.join(woDf, Seq("wo"), "left")
         woDf = woDf.join(datasetComponentDF, Seq("config"), "left")
 
-partMasterDf.show(false)
-woDf.show(false)
-        woDf.select("wo","sn").orderBy(desc("sn")).show(false)
+//partMasterDf.show(false)
+//woDf.show(false)
+//        woDf.select("wo","sn").orderBy(desc("sn")).show(false)
         //join 工單與關鍵物料
         testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
           .join(woDf, Seq("sn"), "left")
           .withColumn(component_info_str, transferArrayToString(col(component_info_str)))
+          .drop("component")
 
         testDeailResultGroupByFirstDf.show(25, false)
 
@@ -457,7 +460,7 @@ woDf.show(false)
 
         val dataTypeDF = mariadbUtils.getDfFromMariadb(spark, "product_item_spec", dataTypePredicates)
           .select("test_item", "test_item_datatype")
-dataTypeDF.show(false)
+
         val dataTypeMap = dataTypeDF.select($"test_item", $"test_item_datatype").as[(String, String)].collect.toMap
 
         //展開json object, 存成csv
@@ -536,8 +539,8 @@ dataTypeDF.show(false)
         }
         val rdd = spark.sparkContext.makeRDD(datasetColumnsList)
         val datasetDataTypeDf = spark.createDataFrame(rdd, datasetSchema)
-        //delete bigdata datatype in dataset id
 
+        //delete bigdata datatype in dataset id
         val deleteSql = "DELETE FROM " + datatypeTable + " WHERE data_set_id='" + id + "'"
         mariadbUtils.execSqlToMariadb(deleteSql)
         mariadbUtils.saveToMariadb(datasetDataTypeDf, datatypeTable, numExecutors)
