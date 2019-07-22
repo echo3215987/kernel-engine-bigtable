@@ -121,7 +121,6 @@ object SparkUDF{
                 }else
                     "\"" + station_name + "@" + i + resultColumnName +"\":" + null
             }).mkString(",")
-
         }
     }
 
@@ -149,4 +148,15 @@ object SparkUDF{
             json
         }
     }
+
+    //組成test detail where條件
+    def genTestDetailSelectSql = udf {
+        (colNames: Seq[String], item: Seq[String]) =>{
+            colNames.map(colName =>
+                item.map(i => "'"+i+"'," + "t2." + colName + "->>'" + i + "'").mkString("jsonb_build_object(",",",") as " + colName)
+            ).mkString(",")
+        }
+    }
+
+
 }

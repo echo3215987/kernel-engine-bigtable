@@ -288,7 +288,7 @@ println(selectSql)
 //      var partMasterDf = IoUtils.getDfFromCockroachdb(spark, masterTable , partMasterPredicates)
 
       var masterWhereSql = "select id,floor,wo,scantime,sn from " + masterTable + " where " + snCondition
-      var partMasterDf = IoUtils.getDfFromCockroachdb(spark, masterWhereSql)
+      var partMasterDf = IoUtils.getDfFromCockroachdb(spark, masterWhereSql, numExecutors)
 
       //group by sn, order by scantime asc, 取第一筆
       val wSpecPartMasterAsc = Window.partitionBy(col("sn"))
@@ -310,7 +310,7 @@ println(selectSql)
 //      var woDf = IoUtils.getDfFromCockroachdb(spark, configLoader.getString("log_prop", "wo_table"), woPredicates)
 
       var woWhereSql = "select * from " + woTable + " where " + woCondition
-      var woDf = IoUtils.getDfFromCockroachdb(spark, woWhereSql)
+      var woDf = IoUtils.getDfFromCockroachdb(spark, woWhereSql, numExecutors)
 
       //只撈關鍵物料的component
       val componentList = datasetDf.select("component").dropDuplicates().map(_.getString(0)).collect.toList
@@ -324,7 +324,7 @@ println(selectSql)
 //      var comConfigDf = IoUtils.getDfFromCockroachdb(spark, matTable, componentPredicates)
 //        .select("config","vendor", "hhpn", "oempn", "component", "component_type", "input_qty")
       var comWhereSql = "select config,vendor,hhpn,oempn,component,component_type,input_qty from " + comTable + " where " + componentCondition
-      var comDf = IoUtils.getDfFromCockroachdb(spark, comWhereSql)
+      var comDf = IoUtils.getDfFromCockroachdb(spark, comWhereSql, numExecutors)
 
 //      先用dataset選的關鍵物料
 //      val componentList = comDf.select("component").dropDuplicates().map(_.getString(0)).collect.toList
@@ -337,7 +337,7 @@ println(selectSql)
       println(partDetailCondition)
       val detailTable = configLoader.getString("log_prop", "wip_parts_table")
       var partDetailWhereSql = "select id,partsn,scantime,vendor_code,date_code,part from " + detailTable + " where " + partDetailCondition
-      var partDetailDf = IoUtils.getDfFromCockroachdb(spark, partDetailWhereSql)
+      var partDetailDf = IoUtils.getDfFromCockroachdb(spark, partDetailWhereSql, numExecutors)
 
       val partList = partDetailDf.select("part").dropDuplicates().map(_.getString(0)).collect.toList
       val partCondition = "part in (" + partList.map(s => "'" + s + "'").mkString(",") + ")"

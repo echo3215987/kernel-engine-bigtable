@@ -122,10 +122,10 @@ object IoUtils {
         return spark.read.jdbc(this.getCockroachdbUrl(), table, predicates, this.getCockroachdbConnectionProperties())
     }
 
-    def getDfFromCockroachdb(spark: SparkSession, query: String): DataFrame = {
+    def getDfFromCockroachdb(spark: SparkSession, query: String, numPartitions: Int): DataFrame = {
         return spark.read.format("jdbc")
           .option("url", this.getCockroachdbUrl())
-//          option("numPartitions", numPartitions)
+          .option("numPartitions", numPartitions)
 //          .option("partitionColumn", primaryKey)
           .option("sslmode", this.getCockroachdbSSLMode())
           .option("user", this.getCockroachdbUser())
@@ -401,16 +401,29 @@ object IoUtils {
 
 
     //gen test item select sql
+//    def genTestDetailItemSelectSQL(colName:String, item: Seq[String]) = {
+//        //test_value->>'first_name', test_value->>'location'
+//        item.map(i=> "t2." + colName +"->>'" + i + "'").mkString(",")
+//    }
+
+    //gen test_value, test_item_result, test_item_result_detail column select sql
     def genTestDetailItemSelectSQL(colName:String, item: Seq[String]) = {
-        //test_value->'first_name', test_value->'location'
-        item.map(i=> colName +"->'" + i + "'").mkString(",")
+        //jsonb_build_object('CpyCopy.2^DLTVGCal', test_value->>'CpyCopy.2^DLTVGCal', 'CpyCopy.1^DLTVGCal', test_value->>'CpyCopy.2^DLTVGCal') as test_value
+        item.map(i=> "'"+i+"'," + "t2." + colName + "->>'" + i + "'").mkString("jsonb_build_object(",",",") as " + colName)
     }
 
-    //gen where sql
+    //gen where sql TODO:delete, no use
     def genTestDetailWhereSQL(product: String, station: Seq[String], item: Seq[String]) = {
         var whereSql = " where product = '" + product + "'"
         whereSql = whereSql + " and (" + station.map(s=> "station_name='" + s + "'").mkString(" or ") + ")"
-//        whereSql = whereSql + " and (" + item.map(i=> "array_length(array_positions(test_item, '"+ i +"'), 1)>0").mkString(" or ") + ")"
+        //        whereSql = whereSql + " and (" + item.map(i=> "array_length(array_positions(test_item, '"+ i +"'), 1)>0").mkString(" or ") + ")"
+        whereSql
+    }
+
+    //gen where sql
+    def genTestDetailWhereSQL(product: String, stationName: String) = {
+        var whereSql = " where product = '" + product + "'"
+        whereSql = whereSql + " and station_name='" + stationName + "'"
         whereSql
     }
 }

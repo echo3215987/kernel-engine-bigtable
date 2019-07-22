@@ -79,6 +79,17 @@ class MariadbUtils {
         return spark.read.jdbc(this.getMariadbUrl(), table, predicates, this.getMariadbConnectionProperties())
     }
 
+    def getDfFromMariadbWithQuery(spark: SparkSession, query: String, numPartitions: Int): DataFrame = {
+        return spark.read.format("jdbc")
+          .option("url", this.getMariadbUrl())
+          .option("numPartitions", numPartitions)
+          //          .option("partitionColumn", primaryKey)
+          .option("user", this.getMariadbUser())
+          .option("password", this.getMariadbPassword())
+          .option("query", query)
+          .load()
+    }
+
     def execSqlToMariadb(sql: String): Unit = {
         val conn = this.getConn()
 
