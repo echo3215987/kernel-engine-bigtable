@@ -58,8 +58,8 @@ object Bigtable{
         import spark.implicits._
         val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
 
-        currentDatasetDf.show(false)
-        currentDatasetStationItemDf.show(false)
+        currentDatasetDf.show()
+        currentDatasetStationItemDf.show()
 
         //只撈出該資料集distinct的item station跟item乘開
 //        val testItemList = List("test_value", "test_item_result", "test_item_result_detail")
@@ -92,7 +92,7 @@ object Bigtable{
         val currentDatasetStationItemDF = currentDatasetStationItemDf.withColumn("selectSql",
             genTestDetailSelectSql(array(lit("test_value"), lit("test_item_result"), lit("test_item_result_detail")),
                 col("item")))
-        currentDatasetStationItemDF.show(false)
+        currentDatasetStationItemDF.show()
 
         var testDeailResultGroupByFirstDf = spark.emptyDataFrame
 
@@ -216,8 +216,6 @@ testDeailResultGroupByFirstDf.show(10,false)
           "where t2.id=t1.id and t2.part = t1.part and t1.scantime=t2.scantime"
         var partDetailDf = IoUtils.getDfFromCockroachdb(spark, detailSql, numExecutors)
 
-//        val partDetailWhereSql = "select id,partsn,scantime,vendor_code,date_code,part from " + detailTable + " where " + partDetailCondition
-//        var partDetailDf = IoUtils.getDfFromCockroachdb(spark, partDetailWhereSql, numExecutors)
 
         val partList = partDetailDf.select("part").dropDuplicates().map(_.getString(0)).collect.toList
         val partCondition = "part in (" + partList.map(s => "'" + s + "'").mkString(",") + ")"
@@ -226,8 +224,6 @@ testDeailResultGroupByFirstDf.show(10,false)
         val partDetailColumn = partDetailColumnStr.split(",")
 
         partDetailDf = partDetailDf
-//          .withColumn("rank", rank().over(wSpecDetailAsc))
-//          .where($"rank".equalTo(1))
           .selectExpr(partDetailColumn: _*)
           .withColumnRenamed("part", "component")
 

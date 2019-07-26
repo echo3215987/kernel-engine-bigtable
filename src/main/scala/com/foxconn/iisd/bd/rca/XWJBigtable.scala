@@ -58,16 +58,16 @@ object XWJBigtable {
     var date = new Date()
     val flag = date.getTime().toString
     val jobStartTime: String = new SimpleDateFormat(
-        configLoader.getString("summary_log_path","job_fmt")).format(date.getTime())
+      configLoader.getString("summary_log_path", "job_fmt")).format(date.getTime())
     println("job start time : " + jobStartTime)
     val executeTime: String = new SimpleDateFormat(
-      configLoader.getString("log_prop","product_dt_fmt")).format(date.getTime())
+      configLoader.getString("log_prop", "product_dt_fmt")).format(date.getTime())
     println("execute time : " + executeTime)
     val nextExcuteDate = org.apache.commons.lang.time.DateUtils.addMinutes(date, 60)
     val nextExcuteTime = new SimpleDateFormat(
-      configLoader.getString("summary_log_path","job_fmt")).format(nextExcuteDate.getTime())
+      configLoader.getString("summary_log_path", "job_fmt")).format(nextExcuteDate.getTime())
     println("next execute time : " + nextExcuteTime)
-//    Summary.setJobStartTime(jobStartTime)
+    //    Summary.setJobStartTime(jobStartTime)
 
     println(s"flag: $flag" + ": xwj")
 
@@ -117,57 +117,16 @@ object XWJBigtable {
     import spark.implicits._
     val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
 
-    //val factory = configLoader.getString("general", "factory")
-
-    //val failCondition: Int = configLoader.getString("analysis", "fail_condition").toInt
-
     //s3a://" + bucket + "/
     val datasetColumnStr = configLoader.getString("dataset", "setting_col")
 
-    //testdetail filter sql
-//    val testdetailFilterColumnStr = configLoader.getString("log_prop", "test_detail_filter_col")
-//
-//    val stationInfoColumn = configLoader.getString("dataset", "station_info_col")
-//
-//    val itemInfoColumn = configLoader.getString("dataset", "item_info_col")
-//
-//    val masterTable = configLoader.getString("log_prop", "wip_table")
-//
-//    val detailTable = configLoader.getString("log_prop", "wip_parts_table")
-//
-//    val partDetailColumnStr = configLoader.getString("dataset", "part_detail_col")
-//
-//    val woTable = configLoader.getString("log_prop", "wo_table")
-//
-//    val comTable = configLoader.getString("log_prop", "mat_table")
-//
-//    val componentInfoColumn = configLoader.getString("dataset", "component_info_col")
-
     val datasetColumnNames = configLoader.getString("dataset", "bigtable_datatype_col")
-//
-//    val datasetPath = configLoader.getString("minio_log_path", "dataset_path")
 
     val datatypeTable = configLoader.getString("dataset", "bigtable_datatype_table")
 
     val itemInfo = configLoader.getString("dataset", "item_info_str")
 
     val productItemSpecTable = configLoader.getString("dataset", "product_item_spec_table")
-
-
-    //group by sn, staion_name, order by test_starttime
-//    val wSpecTestDetailAsc = Window.partitionBy(col("sn"), col("station_name"))
-//      .orderBy(asc("test_starttime"))
-//
-//    val wSpecTestDetailDesc = Window.partitionBy(col("sn"), col("station_name"))
-//      .orderBy(desc("test_starttime"))
-
-    //group by sn, order by scantime asc, 取第一筆
-//    val wSpecPartMasterAsc = Window.partitionBy(col("sn"))
-//      .orderBy(asc("scantime"))
-//
-    //group by part, order by scantime asc, 取第一筆
-//    val wSpecDetailAsc = Window.partitionBy(col("part"))
-//      .orderBy(asc("scantime"))
 
     ///////////
     //載入資料//
@@ -183,7 +142,7 @@ object XWJBigtable {
         "setting.effective_end_date, part.component, item.item, item.station " +
         "from data_set_setting setting, data_set_station_item item, data_set_part part " +
         "where setting.id=item.dss_id and setting.id=part.dss_id " +
-        "and setting.effective_start_date<='" + executeTime + "' "+
+        "and setting.effective_start_date<='" + executeTime + "' " +
         "and setting.effective_end_date>='" + executeTime + "' "
 
       val datasetDf = mariadbUtils.execSqlToMariadbToDf(spark, datasetSql, datasetColumnStr)
@@ -191,14 +150,14 @@ object XWJBigtable {
 
       val datasetGroupByProductIdDF = datasetDf.groupBy("product", "id", "name")
         .agg(collect_set("station").as("station"),
-        collect_set("item").as("item"),
-        collect_set("component").as("component"))
+          collect_set("item").as("item"),
+          collect_set("component").as("component"))
 
-//      val datasetGroupByProductIdList = datasetGroupByProductIdDF.select("product", "id", "station", "item", "component").collect.toList
+      //      val datasetGroupByProductIdList = datasetGroupByProductIdDF.select("product", "id", "station", "item", "component").collect.toList
       val datasetGroupByProductIdList = datasetGroupByProductIdDF.select("product", "id", "station", "component").collect.toList
 
       //依每個資料集id建大表
-      for(row <- datasetGroupByProductIdList){
+      for (row <- datasetGroupByProductIdList) {
         val id = row.getAs[String]("id")
         val currentDatasetDf = datasetGroupByProductIdDF.where("id='" + id + "'")
         val product = currentDatasetDf.select("product").map(_.getString(0)).collect().mkString("")
@@ -215,30 +174,28 @@ object XWJBigtable {
           currentDatasetStationItemDf, id, jobStartTime, nextExcuteTime)
 
         //展開json欄位匯出csv提供客戶下載, 並將大表欄位儲存起來
-        val jsonColumnMapping = Export.exportBigtableToCsv(spark, currentDatasetDf, id, testDeailResultGroupByFirstDf)
+        val (jsonColumnMapping, columnNames) = Export.exportBigtableToCsv(spark, currentDatasetDf, currentDatasetStationItemDf, id, testDeailResultGroupByFirstDf)
 
         //存大表的欄位型態datatype到mysql
-        val columnNames = testDeailResultGroupByFirstDf.columns
-
         //讀取datatype欄位
-        val dataTypeCondition = "product = '" + product + "'" + " and station_name in (" + stationList.map(s => "'" + s + "'").mkString(",")+")" +
-          " and test_item in (" + itemList.map(s => "'" + s + "'").mkString(",")+")"
+        val dataTypeCondition = "product = '" + product + "'" + " and station_name in (" + stationList.map(s => "'" + s + "'").mkString(",") + ")" +
+          " and test_item in (" + itemList.map(s => "'" + s + "'").mkString(",") + ")"
         val dataTypeSql = "select test_item,test_item_datatype from " + productItemSpecTable + " where " + dataTypeCondition
         val dataTypeDF = mariadbUtils.getDfFromMariadbWithQuery(spark, dataTypeSql, numExecutors)
         val dataTypeMap = dataTypeDF.select($"test_item", $"test_item_datatype").as[(String, String)].collect.toMap
 
         var datasetColumnsList = List[Row]()
-        for(column <- columnNames){
+        for (column <- columnNames) {
           var jsonType = "fixed"
-          if(jsonColumnMapping.contains(column)){
+          if (jsonColumnMapping.contains(column)) {
             jsonType = jsonColumnMapping.apply(column)
           }
           var columnTemp = column
           var dataType = "string"
-          if(jsonType.equals(itemInfo) && column.contains("@")){
+          if (jsonType.equals(itemInfo) && column.contains("@")) {
             columnTemp = column.split("@")(1)
           }
-          if(dataTypeMap.contains(columnTemp)){
+          if (dataTypeMap.contains(columnTemp)) {
             dataType = dataTypeMap.apply(columnTemp)
           }
           datasetColumnsList = datasetColumnsList :+ Row(id, column, dataType, jsonType)
@@ -258,7 +215,7 @@ object XWJBigtable {
       }
 
       val jobEndTime: String = new SimpleDateFormat(
-        configLoader.getString("summary_log_path","job_fmt")).format(new Date().getTime())
+        configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime())
       println("job end time : " + jobEndTime)
 
     } catch {

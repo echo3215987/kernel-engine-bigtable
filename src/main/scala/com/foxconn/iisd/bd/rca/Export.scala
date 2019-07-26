@@ -29,10 +29,13 @@ object Export{
 
     val datasetPath = configLoader.getString("minio_log_path", "dataset_path")
 
-    def exportBigtableToCsv(spark: SparkSession, currentDatasetDF: DataFrame, id: String,
-              testDeailResultGroupByDf: DataFrame): Map[String, String] ={
+    def exportBigtableToCsv(spark: SparkSession, currentDatasetDF: DataFrame, currentDatasetStationItemDf: DataFrame,
+                            id: String, testDeailResultGroupByDf: DataFrame) ={
         import spark.implicits._
         val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
+        val itemList = currentDatasetStationItemDf.withColumn("item", explode(col("item")))
+          .withColumn("item_column", concat(col("station_name"), lit("@"), col("item")))
+          .select("item_column").map(_.getString(0)).collect.toList
 
         //展開json欄位匯出csv提供客戶下載, 並將大表欄位儲存起來
         val jsonColumns = List(stationInfo, itemInfo, componentInfo)
@@ -55,22 +58,32 @@ object Export{
             val infoList = currentDatasetDf.select(datasetColumnName).dropDuplicates().map(_.getString(0)).collect.toList
             var infoFielids = List[String]()
             if(jsonInfo.equals(itemInfo)){
-                val stationInfo = currentDatasetDf.select("station").dropDuplicates().map(_.getString(0)).collect.mkString(",")
-                stationInfo.split(",").map(
-                    station => {
-                        for(info <- infoList){
-                            val jsonValue = station + "@" + info
-                            infoFielids = infoFielids :+ jsonValue
-                            val jsonResult = jsonValue + "@result"
-                            infoFielids = infoFielids :+ jsonResult
-                            val jsonResultDetail = jsonValue + "@result_detail"
-                            infoFielids = infoFielids :+ jsonResultDetail
-                            jsonColumnMapping = jsonColumnMapping + (jsonValue -> jsonInfo)
-                            jsonColumnMapping = jsonColumnMapping + (jsonResult -> jsonInfo)
-                            jsonColumnMapping = jsonColumnMapping + (jsonResultDetail -> jsonInfo)
-                        }
-                    }
-                )
+                //                val stationInfo = currentDatasetDf.select("station").dropDuplicates().map(_.getString(0)).collect.mkString(",")
+                //                stationInfo.split(",").map(
+                //                    station => {
+                //                        for(info <- infoList){
+                //                            val jsonValue = station + "@" + info
+                //                            infoFielids = infoFielids :+ jsonValue
+                //                            val jsonResult = jsonValue + "@result"
+                //                            infoFielids = infoFielids :+ jsonResult
+                //                            val jsonResultDetail = jsonValue + "@result_detail"
+                //                            infoFielids = infoFielids :+ jsonResultDetail
+                //                            jsonColumnMapping = jsonColumnMapping + (jsonValue -> jsonInfo)
+                //                            jsonColumnMapping = jsonColumnMapping + (jsonResult -> jsonInfo)
+                //                            jsonColumnMapping = jsonColumnMapping + (jsonResultDetail -> jsonInfo)
+                //                        }
+                //                    }
+                //                )
+                for(item <- itemList){
+                    infoFielids = infoFielids :+ item
+                    val jsonResult = item + "@result"
+                    infoFielids = infoFielids :+ jsonResult
+                    val jsonResultDetail = item + "@result_detail"
+                    infoFielids = infoFielids :+ jsonResultDetail
+                    jsonColumnMapping = jsonColumnMapping + (item -> jsonInfo)
+                    jsonColumnMapping = jsonColumnMapping + (jsonResult -> jsonInfo)
+                    jsonColumnMapping = jsonColumnMapping + (jsonResultDetail -> jsonInfo)
+                }
             }
 
             if(jsonInfo.equals(stationInfo) || jsonInfo.equals(componentInfo)){
@@ -103,6 +116,6 @@ object Export{
         testDeailResultGroupByFirstDf.repartition(numExecutors).write.option("header", "true")
           .mode("overwrite").csv(datasetPath + "/" + id)
 
-        jsonColumnMapping
+        (jsonColumnMapping, testDeailResultGroupByFirstDf.columns)
     }
 }
