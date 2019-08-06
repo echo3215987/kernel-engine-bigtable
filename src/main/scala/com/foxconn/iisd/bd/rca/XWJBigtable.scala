@@ -209,7 +209,6 @@ object XWJBigtable {
         val deleteSql = "DELETE FROM " + datatypeTable + " WHERE data_set_id='" + id + "'"
         mariadbUtils.execSqlToMariadb(deleteSql)
         mariadbUtils.saveToMariadb(datasetDataTypeDf, datatypeTable, numExecutors)
-
       }
 
       val jobEndTime: String = new SimpleDateFormat(

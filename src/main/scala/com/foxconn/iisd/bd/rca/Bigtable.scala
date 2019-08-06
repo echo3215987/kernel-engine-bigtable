@@ -58,8 +58,8 @@ object Bigtable{
         import spark.implicits._
         val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
 
-        currentDatasetDf.show()
-        currentDatasetStationItemDf.show()
+//        currentDatasetDf.show()
+//        currentDatasetStationItemDf.show()
 
         //只撈出該資料集distinct的item, 只有選的station與item
         val currentDatasetStationItemDF = currentDatasetStationItemDf.withColumn("selectSql",
@@ -88,7 +88,7 @@ object Bigtable{
                 val rank = aggMap.apply(agg)
                 val tempDf = IoUtils.getDfFromCockroachdb(spark, testdetailSql.replace("agg_function", agg), numExecutors)
                   .withColumn("value_rank", lit(rank))
-                  .persist(StorageLevel.DISK_ONLY)
+//                  .persist(StorageLevel.DISK_ONLY)
                 if (testDeailResultGroupByFirstDf.isEmpty)
                     testDeailResultGroupByFirstDf = tempDf
                 testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.union(tempDf)
