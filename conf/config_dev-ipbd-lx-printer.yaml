@@ -1,8 +1,13 @@
 spark:
     job_name: "dev-xwj-KernelEngineBigTable"
-    master: "local"
-    conf: "spark.driver.memory=2g;
-           spark.executor.memory=2g"
+    master: "k8s://192.168.1.63:6443"
+    conf: "spark.driver.memory=6g;
+       spark.executor.memory=6g;
+       spark.executor.instances=5;
+       spark.memory.offHeap.enabled=true;
+       spark.memory.offHeap.size=4g;
+       spark.eventLog.dir=/mnt/fuse_cephfs/data/spark/eventLog;
+       spark.eventLog.enabled=true"
 
 minio:
     endpoint:   "http://10.57.232.167:31359"
@@ -59,10 +64,10 @@ local_log_path:
     test_detail_compression_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION/vfpa_trans_fail_list_20190513-20190520.tar.xz"
     test_detail_compression_tmp_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION_TMP/"
     test_detail_compression_output_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION_OUTPUT/"
-    test_detail_compression_output_successful_path: "{{test_detail_compression_output_path}}/SUCCESSFUL"
-    test_detail_compression_output_failed_path: "{{test_detail_compression_output_path}}/FAILED"
+    test_detail_compression_output_successful_path: "{{test_detail_compression_output_path}}/SUCCESSFUL/"
+    test_detail_compression_output_failed_path: "{{test_detail_compression_output_path}}/FAILED/"
     #temp for validation
-    test_detail_compression_output_result_path: "{{test_detail_compression_output_path}}/RESULT"
+    test_detail_compression_output_result_path: "{{test_detail_compression_output_path}}/RESULT/"
 
 
     test_detail_path: "{{data_base_path}}/RCA/ask/.txt"
@@ -80,10 +85,10 @@ minio_log_path:
     test_detail_compression_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION/"
     test_detail_compression_tmp_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION_TMP/"
     test_detail_compression_output_path: "{{data_base_path}}/TEST_DETAIL_COMPRESSION_OUTPUT/"
-    test_detail_compression_output_successful_path: "{{test_detail_compression_output_path}}/SUCCESSFUL"
-    test_detail_compression_output_failed_path: "{{test_detail_compression_output_path}}/FAILED"
+    test_detail_compression_output_successful_path: "{{test_detail_compression_output_path}}/SUCCESSFUL/"
+    test_detail_compression_output_failed_path: "{{test_detail_compression_output_path}}/FAILED/"
     #temp for validation
-    test_detail_compression_output_result_path: "{{test_detail_compression_output_path}}/RESULT"
+    test_detail_compression_output_result_path: "{{test_detail_compression_output_path}}/RESULT/"
 
     test_detail_path: "{{data_base_path}}/TEST_DETAIL"
     test_detail_file_limits: "1"

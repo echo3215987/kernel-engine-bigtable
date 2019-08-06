@@ -6,13 +6,11 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.Date
 
-import com.foxconn.iisd.bd.rca.Export.mariadbUtils
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.functions.{regexp_extract, regexp_replace, _}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import com.foxconn.iisd.bd.rca.SparkUDF._
-import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
 import org.apache.spark.api.java.function.MapFunction
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.storage.StorageLevel

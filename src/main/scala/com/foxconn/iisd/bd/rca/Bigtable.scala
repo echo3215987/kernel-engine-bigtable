@@ -61,33 +61,6 @@ object Bigtable{
         currentDatasetDf.show()
         currentDatasetStationItemDf.show()
 
-        //只撈出該資料集distinct的item station跟item乘開
-//        val testItemList = List("test_value", "test_item_result", "test_item_result_detail")
-//        val testItemJsonbSql = testItemList.map( testItem => IoUtils.genTestDetailItemSelectSQL(testItem, row.getAs("item"))).mkString(",")
-//        println(testItemJsonbSql)
-//
-//        val whereSql = IoUtils.genTestDetailWhereSQL(row.getAs("product"), row.getAs("station"), row.getAs("item"))
-//        val testdetailSql = "select " + testdetailFilterColumn.split(",").map(col => "t2." + col).mkString(",") + "," + testItemJsonbSql +
-//          " from " + testdetailTable + " as t2, " +
-//          "(select sn, station_name, agg_function(test_starttime) as test_starttime from " + testdetailTable + whereSql + " group by sn, station_name) as t1 " +
-//          "where t2.sn=t1.sn and t2.station_name = t1.station_name and t1.test_starttime=t2.test_starttime"
-//        println(row)
-//        println(testdetailSql)
-
-        //撈測試結果細表的條件
-//        val aggFunction = List("min", "max")
-//        val aggMap = Map("min" -> "first", "max" -> "last")
-//        var testDeailResultGroupByFirstDf = spark.emptyDataFrame
-//        for (agg <- aggFunction) {
-//            val rank = aggMap.apply(agg)
-//              val tempDf = IoUtils.getDfFromCockroachdb(spark, testdetailSql.replace("agg_function", agg), numExecutors)
-//              .withColumn("value_rank", lit(rank))
-//              .persist(StorageLevel.DISK_ONLY)
-//            if (testDeailResultGroupByFirstDf.isEmpty)
-//                testDeailResultGroupByFirstDf = tempDf
-//            testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.union(tempDf)
-//        }
-
         //只撈出該資料集distinct的item, 只有選的station與item
         val currentDatasetStationItemDF = currentDatasetStationItemDf.withColumn("selectSql",
             genTestDetailSelectSql(array(lit("test_value"), lit("test_item_result"), lit("test_item_result_detail")),
@@ -122,7 +95,7 @@ object Bigtable{
             }
         }
 
-testDeailResultGroupByFirstDf.show(10,false)
+testDeailResultGroupByFirstDf.show(10, false)
 
         //以每個dataset, 收斂成一個工站資訊
         testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
@@ -271,9 +244,6 @@ testDeailResultGroupByFirstDf.show(10,false)
           .dropDuplicates("wo")
         woDf = partMasterDf.join(woDf, Seq("wo"), "left")
         woDf = woDf.join(datasetComponentDF, Seq("config"), "left")
-
-        //partMasterDf.show(false)
-        //woDf.show(false)
 
         //join 工單與關鍵物料
         testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
