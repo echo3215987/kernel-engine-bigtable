@@ -29,7 +29,7 @@ mariadb:
     #database:   "rca-staging-ipbd-lx-printer"
     username:   "edgeserver"
     password:   "Foxconn123654!@"
-    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&useUnicode=true&characterEncoding=UTF-8"
+    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
 
 general:
     factory: "CQ"
