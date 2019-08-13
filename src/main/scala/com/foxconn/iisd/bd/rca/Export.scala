@@ -1,5 +1,8 @@
 package com.foxconn.iisd.bd.rca
 
+import java.text.SimpleDateFormat
+import java.util.Date
+
 import com.foxconn.iisd.bd.rca.SparkUDF.{genInfo, genItemJsonFormat, genStaionJsonFormat, transferArrayToString}
 import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
 import org.apache.spark.sql.expressions.Window
@@ -33,6 +36,11 @@ object Export{
                             id: String, testDeailResultGroupByDf: DataFrame) ={
         import spark.implicits._
         val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
+
+println("-----------------> export bigtable to file: " + id + ", start_time:" + new SimpleDateFormat(
+  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+
+
         val itemList = currentDatasetStationItemDf.withColumn("item", explode(col("item")))
           .withColumn("item_column", concat(col("station_name"), lit("@"), col("item")))
           .select("item_column").map(_.getString(0)).collect.toList
@@ -115,6 +123,9 @@ object Export{
 
         testDeailResultGroupByFirstDf.repartition(numExecutors).write.option("header", "true")
           .mode("overwrite").csv(datasetPath + "/" + id)
+
+println("-----------------> export bigtable to file: " + id + ", end_time:" + new SimpleDateFormat(
+  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
         (jsonColumnMapping, testDeailResultGroupByFirstDf.columns)
     }

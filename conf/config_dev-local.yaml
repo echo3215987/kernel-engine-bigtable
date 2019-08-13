@@ -109,7 +109,7 @@ log_prop:
     wip_parts_col: "id,partsn,scantime,opid,assembly_station,part,hh_pard,cust_part,line,disassembly"
     wip_parts_table: "part_detail"
     wip_parts_dt_fmt: "yyyy-MM-dd HH:mm:ss"
-    wip_parts_filter_col: "id,partsn,scantime,vendor_code,date_code,part"
+    wip_parts_filter_col: "id,partsn,scantime,vendor_code,date_code,part,opid"
 
     #CN8BS7C334_||_TLEOL_||_TLEOL_||_LC_TLEOL_41_||_11/29/2018 8:33:10 AM_||_11/29/2018 8:38:46 AM_||_0_||__||__||_11/29/2018 8:38:46 AM
     bobcat_col: "sn,station,stationcode,machine,start_time,end_time,istestfail,symptom,desc_,uploadtime,c1,c2,c3"
@@ -170,10 +170,10 @@ dataset:
     product_item_spec_table: "product_item_spec"
     bigtable_datatype_table: "data_set_bigtable_columns"
     bigtable_datatype_col: "data_set_id,column_name,column_type,json_str"
-    station_info_col: "build_description,unit_number,station_id,test_status,test_starttime,list_of_failure,test_version"
+    station_info_col: "build_description,unit_number,station_id,test_status,test_starttime,list_of_failure,test_version,machine_id"
     item_info_col: "test_value,test_item_result,test_item_result_detail"
-    component_info_col: "vendor,hhpn,oempn,component_type,input_qty,partsn,vendor_code,date_code"
-    part_detail_col: "partsn,vendor_code,date_code,part"
+    component_info_col: "vendor,hhpn,oempn,component_type,input_qty,partsn,vendor_code,date_code,opid"
+    part_detail_col: "partsn,vendor_code,date_code,part,opid"
     setting_col: "id,name,product,bt_name,bt_create_time,bt_last_time,bt_next_time,effective_start_date,effective_end_date,component,item,station"
     station_name_str: "station_name"
     station_info_str: "station_info"

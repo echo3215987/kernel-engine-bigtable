@@ -135,16 +135,21 @@ object XWJBigtable {
       //先讀dataset setting table
       val mariadbUtils = new MariadbUtils()
 
-      val datasetSql = "select setting.id, setting.name, setting.product, setting.bt_name, setting.bt_create_time, " +
-        "setting.bt_last_time, setting.bt_next_time, setting.effective_start_date, " +
-        "setting.effective_end_date, part.component, item.item, item.station " +
-        "from data_set_setting setting, data_set_station_item item, data_set_part part " +
-        "where setting.id=item.dss_id and setting.id=part.dss_id " +
-        "and setting.effective_start_date<='" + executeTime + "' " +
-        "and setting.effective_end_date>='" + executeTime + "' "
+      val datasetSql = "select setting_new.*, part.component from (select setting.id, setting.name, setting.product, " +
+          "setting.bt_name, setting.bt_create_time, setting.bt_last_time, setting.bt_next_time, " +
+          "setting.effective_start_date, setting.effective_end_date, item.item, item.station " +
+          "from data_set_setting setting, data_set_station_item item " +
+          "where setting.id=item.dss_id and setting.effective_start_date<='" + executeTime +
+          "' and setting.effective_end_date>='" + executeTime + "') setting_new " +
+          "left join data_set_part part on setting_new.id=part.dss_id"
+      println("datasetSql:" + datasetSql)
 
-      val datasetDf = mariadbUtils.execSqlToMariadbToDf(spark, datasetSql, datasetColumnStr)
+      val datasetDf = mariadbUtils.getDfFromMariadbWithQuery(spark, datasetSql, numExecutors)
         .filter($"item".isNotNull.and($"station".isNotNull))
+      datasetDf.show(false)
+
+//      var datasetDf = mariadbUtils.execSqlToMariadbToDf(spark, datasetSql, datasetColumnStr)
+//      datasetDf.show(false)
 
       val datasetGroupByProductIdDF = datasetDf.groupBy("product", "id", "name")
         .agg(collect_set("station").as("station"),
@@ -154,9 +159,12 @@ object XWJBigtable {
       //      val datasetGroupByProductIdList = datasetGroupByProductIdDF.select("product", "id", "station", "item", "component").collect.toList
       val datasetGroupByProductIdList = datasetGroupByProductIdDF.select("product", "id", "station", "component").collect.toList
 
+
       //依每個資料集id建大表
       for (row <- datasetGroupByProductIdList) {
-        val id = row.getAs[String]("id")
+        val id = row.getAs[Long]("id").toString
+        println("gen bigtable id: " + id + " start_time:" + new SimpleDateFormat(
+          configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
         val currentDatasetDf = datasetGroupByProductIdDF.where("id='" + id + "'")
         val product = currentDatasetDf.select("product").map(_.getString(0)).collect().mkString("")
         val stationList = currentDatasetDf.selectExpr("explode(station)").dropDuplicates().map(_.getString(0)).collect.toList
@@ -174,6 +182,8 @@ object XWJBigtable {
         //展開json欄位匯出csv提供客戶下載, 並將大表欄位儲存起來
         val (jsonColumnMapping, columnNames) = Export.exportBigtableToCsv(spark, currentDatasetDf, currentDatasetStationItemDf, id, testDeailResultGroupByFirstDf)
 
+println("-----------------> extract bigtable column datatype: " + id + ", start_time:" + new SimpleDateFormat(
+  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
         //存大表的欄位型態datatype到mysql
         //讀取datatype欄位
         val dataTypeCondition = "product = '" + product + "'" + " and station_name in (" + stationList.map(s => "'" + s + "'").mkString(",") + ")" +
@@ -209,6 +219,12 @@ object XWJBigtable {
         val deleteSql = "DELETE FROM " + datatypeTable + " WHERE data_set_id='" + id + "'"
         mariadbUtils.execSqlToMariadb(deleteSql)
         mariadbUtils.saveToMariadb(datasetDataTypeDf, datatypeTable, numExecutors)
+println("-----------------> extract bigtable column datatype: " + id + ", end_time:" + new SimpleDateFormat(
+  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+
+println("gen bigtable id: " + id + " end_time:" + new SimpleDateFormat(
+  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+println("id :" + id + " sn count:" + testDeailResultGroupByFirstDf.select("sn").dropDuplicates().count())
       }
 
       val jobEndTime: String = new SimpleDateFormat(
