@@ -124,8 +124,8 @@ log_prop:
     test_detail_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,test_item,test_value,test_unit,test_lower,test_upper,test_item_result,test_item_result_detail,create_time,update_time,station_name,start_date,product,test_version"
     test_detail_table: "test_detail"
     test_detail_dt_fmt: "yyyy-MM-dd HH:mm:ss"
-    #test_detail_filter_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,create_time,update_time,station_name,start_date,product,test_version,test_value,test_item_result,test_item_result_detail"
-    test_detail_filter_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,create_time,update_time,station_name,start_date,product,test_version,"
+    #test_detail_filter_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,create_time,update_time,station_name,start_date,product,test_version,"
+    test_detail_filter_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,create_time,update_time,station_name,start_date,product,test_version,scantime,scan_floor,id,wo,"
 
     #CHEB_||_296269793_||_CEB1_||_V1N01B#629_||_V1N01B#629_||_V1N01B#629_||_1_||_CHEB_WO_20190524171446.dat_||_SOR_||_ZFRT_||__||_HP DeskJet 2620 All-in-One Printer_||_20190523_||_P2_||_20190523
     #SELECT product, build_name, file_name, wo, wo_type, plant_code, vendor_pn, hhpn, plan_qty, config, component_type, main_wo, upsert_time

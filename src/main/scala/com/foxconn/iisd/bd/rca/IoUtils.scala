@@ -21,6 +21,10 @@ object IoUtils {
         return configLoader.getString("cockroachdb", "conn_str")
     }
 
+    private def getCockroachdbDriver(): String = {
+        return configLoader.getString("cockroachdb", "driver")
+    }
+
     private def getCockroachdbSSLMode(): String = {
         return configLoader.getString("cockroachdb", "sslmode")
     }

@@ -76,6 +76,9 @@ object Bigtable{
         val aggMap = Map("min" -> "first", "max" -> "last")
 
         val currentDatasetStationItemList = currentDatasetStationItemDF.select("station_name", "selectSql").collect.toList
+println("-----------------> select testdetail first / last -> start_time:" + new SimpleDateFormat(
+  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+
         for(stationItemRow <- currentDatasetStationItemList){
             //撈測試結果細表的條件
             val whereSql = IoUtils.genTestDetailWhereSQL(row.getAs("product"), stationItemRow.getAs("station_name"))
@@ -84,7 +87,7 @@ object Bigtable{
               " from " + testdetailTable + " as t2, " +
               "(select sn, station_name, agg_function(test_starttime) as test_starttime from " + testdetailTable + whereSql +
               " group by sn, station_name) as t1 " +
-              "where t2.sn=t1.sn and t2.station_name = t1.station_name and t1.test_starttime=t2.test_starttime"
+              " where t2.sn=t1.sn and t2.station_name = t1.station_name and t1.test_starttime=t2.test_starttime"
 //            println(row)
 //            println(testdetailSql)
 
@@ -92,17 +95,26 @@ object Bigtable{
                 val rank = aggMap.apply(agg)
                 val tempDf = IoUtils.getDfFromCockroachdb(spark, testdetailSql.replace("agg_function", agg), numExecutors)
                   .withColumn("value_rank", lit(rank))
-//                  .persist(StorageLevel.DISK_ONLY)
                 if (testDeailResultGroupByFirstDf.isEmpty)
                     testDeailResultGroupByFirstDf = tempDf
                 testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.union(tempDf)
             }
         }
+println("-----------------> select testdetail first / last -> end_time:" + new SimpleDateFormat(
+configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-//testDeailResultGroupByFirstDf.show(10, false)
+//testDeailResultGroupByFirstDf.show(1, false)
+        //紀錄part_master資訊
+        //先調整part_master的id欄位名稱
+        var partMasterDf = testDeailResultGroupByFirstDf
+          .drop("floor") //刪除測試樓層
+          .dropDuplicates("sn")
+          .withColumnRenamed("scan_floor", "floor") //更改組裝樓層名稱scan_floor -> floor
+          .select("sn", "wo", "id", "scantime", "floor")
 
         //以每個dataset, 收斂成一個工站資訊
         testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
+          .drop("wo", "id", "scantime", "floor") //刪除組裝主表的相關欄位
           .join(currentDatasetDf, Seq("product"), "left")
           .join(currentDatasetStationItemDF.select("station_name", "item"), Seq("station_name"), "left")
 
@@ -157,20 +169,24 @@ object Bigtable{
         val snList = testDeailResultGroupByFirstDf.select("sn").dropDuplicates().map(_.getString(0)).collect.toList
         val snCondition = "sn in (" + snList.map(s => "'" + s + "'").mkString(",") + ")"
 //        println(snCondition)
-println("-----------------> select part table (first scantime) where sn, product start_time:" + new SimpleDateFormat(
-  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-        val masterSql = "select "  + masterFilterColumn.split(",").map(col => "t2." + col).mkString(",") + " from " + masterTable + " as t2, " +
-          "(select sn, product, min(scantime) as scantime from " + masterTable + " where " + snCondition + " group by sn, product) as t1 " +
-          "where t2.sn=t1.sn and t2.product = t1.product and t1.scantime=t2.scantime"
-        var partMasterDf = IoUtils.getDfFromCockroachdb(spark, masterSql, numExecutors)
+      //v2改到xwj ke處理
+//println("-----------------> select part table (first scantime) where sn, product start_time:" + new SimpleDateFormat(
+//  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-println("-----------------> select part table (first scantime) where sn, product end_time:" + new SimpleDateFormat(
-configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+//        val masterSql = "select " + masterFilterColumn.split(",").map(col => "t2." + col).mkString(",") + " from " + masterTable + " as t2, " +
+//          "(select sn, product, min(scantime) as scantime from " + masterTable + " where " + snCondition + " group by sn, product) as t1 " +
+//          "where t2.sn=t1.sn and t2.product = t1.product and t1.scantime=t2.scantime"
+//        var partMasterDf = IoUtils.getDfFromCockroachdb(spark, masterSql, numExecutors)
+
+//println("-----------------> select part table (first scantime) where sn, product end_time:" + new SimpleDateFormat(
+//configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
         val partMasterIdList = partMasterDf.select("id").dropDuplicates().map(_.getString(0)).collect.toList
 
-        val woList = partMasterDf.select("wo").dropDuplicates().map(_.getString(0)).collect.toList
+        val woList = partMasterDf
+//          .filter(col("wo").notEqual("N/A"))
+            .select("wo").dropDuplicates().map(_.getString(0)).collect.toList
         val woCondition = "wo in (" + woList.map(s => "'" + s + "'").mkString(",") + ")"
 //        println(woCondition)
 println("-----------------> select wo, start_time:" + new SimpleDateFormat(
@@ -178,6 +194,7 @@ println("-----------------> select wo, start_time:" + new SimpleDateFormat(
 
         val woWhereSql = "select wo,wo_type,plant_code,plan_qty,config,build_name,release_date from " + woTable + " where " + woCondition
         var woDf = IoUtils.getDfFromCockroachdb(spark, woWhereSql, numExecutors)
+
 println("-----------------> select wo, end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
@@ -188,10 +205,12 @@ println("-----------------> select wo, end_time:" + new SimpleDateFormat(
         val componentCondition = "config in (" + configList.map(s => "'" + s + "'").mkString(",") + ") " +
           "and component in (" + componentList.map(s => "'" + s + "'").mkString(",") + ")"
 //        println(componentCondition)
+
 println("-----------------> select config_component, start_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
         val comWhereSql = "select config,vendor,hhpn,oempn,component,component_type,input_qty from " + comTable + " where " + componentCondition
         var comDf = IoUtils.getDfFromCockroachdb(spark, comWhereSql, numExecutors)
+
 println("-----------------> select config_component, end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
@@ -202,17 +221,15 @@ println("-----------------> select config_component, end_time:" + new SimpleDate
 
 println("-----------------> select part_sn, start_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
-      //TODO ask jerry可能可以調整
+
         val detailSql = "select "  + detailFilterColumn.split(",").map(col => "t2." + col).mkString(",") + " from " + detailTable + " as t2, " +
           "(select id, part, min(scantime) as scantime from " + detailTable + " where " + partDetailCondition + " group by id, part) as t1 " +
           "where t2.id=t1.id and t2.part = t1.part and t1.scantime=t2.scantime"
         var partDetailDf = IoUtils.getDfFromCockroachdb(spark, detailSql, numExecutors)
+
 println("-----------------> select part_sn, end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-        val partList = partDetailDf.select("part").dropDuplicates().map(_.getString(0)).collect.toList
-        val partCondition = "part in (" + partList.map(s => "'" + s + "'").mkString(",") + ")"
-//        println(partCondition)
 //        partsn,vendor_code,date_code,part
         val partDetailColumn = partDetailColumnStr.split(",")
 
@@ -297,6 +314,7 @@ println("-----------------> select part_sn, end_time:" + new SimpleDateFormat(
         testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
           .withColumnRenamed("name", "data_set_name")
           .withColumnRenamed("id", "data_set_id")
+
 println("-----------------> drop and insert bigtable: " + id + ", start_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
@@ -317,6 +335,7 @@ println("-----------------> drop and insert bigtable: " + id + ", start_time:" +
           " bt_next_time = '" + nextExcuteTime + "'" +
           " WHERE id = " + id
         mariadbUtils.execSqlToMariadb(updateSql)
+
 println("-----------------> drop and insert bigtable: " + id + ", end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
         testDeailResultGroupByFirstDf
