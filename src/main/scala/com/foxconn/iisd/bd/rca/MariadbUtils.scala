@@ -147,66 +147,72 @@ class MariadbUtils {
     }
 
     def saveToMariadb(df: DataFrame, table: String, numExecutors: Int): Unit = {
-        val mariadbUrl = configLoader.getString("mariadb", "conn_str")
-        val mariadbConnectionProperties = new Properties()
+        try{
+            val mariadbUrl = configLoader.getString("mariadb", "conn_str")
+            val mariadbConnectionProperties = new Properties()
 
-        mariadbConnectionProperties.put(
-            "user",
-            configLoader.getString("mariadb", "username")
-        )
+            mariadbConnectionProperties.put(
+                "user",
+                configLoader.getString("mariadb", "username")
+            )
 
-        mariadbConnectionProperties.put(
-            "password",
-            configLoader.getString("mariadb", "password")
-        )
+            mariadbConnectionProperties.put(
+                "password",
+                configLoader.getString("mariadb", "password")
+            )
 
-        val sqlPrefix =
-            "REPLACE INTO " + table +
-              "(" + df.columns.mkString(",") + ")" +
-              " VALUES "
+            val sqlPrefix =
+                "REPLACE INTO " + table +
+                  "(" + df.columns.mkString(",") + ")" +
+                  " VALUES "
 
-        val batchSize = 50
-        val repartitionSize = numExecutors
+            val batchSize = 50
+            val repartitionSize = numExecutors
 
-        df.rdd.repartition(repartitionSize).foreachPartition{
+            df.rdd.repartition(repartitionSize).foreachPartition{
 
-            partition => {
+                partition => {
 
-                val conn = DriverManager.getConnection(
-                    mariadbUrl,
-                    mariadbConnectionProperties)
+                    val conn = DriverManager.getConnection(
+                        mariadbUrl,
+                        mariadbConnectionProperties)
 
-                conn.setAutoCommit(false)
+                    conn.setAutoCommit(false)
 
-                var count = 0
-                var sql = sqlPrefix
+                    var count = 0
+                    var sql = sqlPrefix
 
-                partition.foreach { r =>
-                    count += 1
+                    partition.foreach { r =>
+                        count += 1
 
-                    val values = r.mkString("'", "','", "'").replaceAll("'null'", "null")
+                        val values = r.mkString("'", "','", "'").replaceAll("'null'", "null")
 
-                    sql = sql + "(" + values + ") ,"
+                        sql = sql + "(" + values + ") ,"
 
-                    if(count == batchSize){
-//                        println("寫入Mariadb筆數 : " + count)
-//                        println("sql : " + sql.substring(0, sql.length - 1))
-                        conn.createStatement().execute(sql.substring(0, sql.length - 1))
-                        count = 0
-                        sql = sqlPrefix
+                        if(count == batchSize){
+                            //                        println("寫入Mariadb筆數 : " + count)
+                            //                        println("sql : " + sql.substring(0, sql.length - 1))
+                            conn.createStatement().execute(sql.substring(0, sql.length - 1))
+                            count = 0
+                            sql = sqlPrefix
 
-                        conn.commit()
+                            conn.commit()
+                        }
                     }
-                }
 
-                if(count > 0) {
-//                    println("寫入Mariadb筆數 : " + count)
-//                    println("sql : " + sql.substring(0, sql.length - 1))
-                    conn.createStatement().execute(sql.substring(0, sql.length - 1))
-                }
+                    if(count > 0) {
+                        //                    println("寫入Mariadb筆數 : " + count)
+                        //                    println("sql : " + sql.substring(0, sql.length - 1))
+                        conn.createStatement().execute(sql.substring(0, sql.length - 1))
+                    }
 
-                conn.commit()
+                    conn.commit()
+                }
             }
         }
+        catch {
+            case ex => ex.printStackTrace()
+        }
+
     }
 }

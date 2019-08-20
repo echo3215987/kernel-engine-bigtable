@@ -107,7 +107,7 @@ configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime
         //紀錄part_master資訊
         //先調整part_master的id欄位名稱
         var partMasterDf = testDeailResultGroupByFirstDf
-          .drop("floor") //刪除測試樓層
+          .drop(col("floor")) //刪除測試樓層
           .dropDuplicates("sn")
           .withColumnRenamed("scan_floor", "floor") //更改組裝樓層名稱scan_floor -> floor
           .select("sn", "wo", "id", "scantime", "floor")
@@ -314,6 +314,7 @@ println("-----------------> select part_sn, end_time:" + new SimpleDateFormat(
         testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
           .withColumnRenamed("name", "data_set_name")
           .withColumnRenamed("id", "data_set_id")
+          .persist(StorageLevel.MEMORY_AND_DISK)
 
 println("-----------------> drop and insert bigtable: " + id + ", start_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))

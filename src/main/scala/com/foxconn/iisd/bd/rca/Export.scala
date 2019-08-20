@@ -51,7 +51,7 @@ println("-----------------> export bigtable to file: " + id + ", start_time:" + 
         for(jsonInfo <- jsonColumns){
             testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
               .withColumn(jsonInfo, regexp_replace(col(jsonInfo), "'", ""))
-              .persist(StorageLevel.DISK_ONLY)
+              .persist(StorageLevel.MEMORY_AND_DISK)
         }
 
         //station 與 component json固定資訊
@@ -66,22 +66,6 @@ println("-----------------> export bigtable to file: " + id + ", start_time:" + 
             val infoList = currentDatasetDf.select(datasetColumnName).dropDuplicates().map(_.getString(0)).collect.toList
             var infoFielids = List[String]()
             if(jsonInfo.equals(itemInfo)){
-                //                val stationInfo = currentDatasetDf.select("station").dropDuplicates().map(_.getString(0)).collect.mkString(",")
-                //                stationInfo.split(",").map(
-                //                    station => {
-                //                        for(info <- infoList){
-                //                            val jsonValue = station + "@" + info
-                //                            infoFielids = infoFielids :+ jsonValue
-                //                            val jsonResult = jsonValue + "@result"
-                //                            infoFielids = infoFielids :+ jsonResult
-                //                            val jsonResultDetail = jsonValue + "@result_detail"
-                //                            infoFielids = infoFielids :+ jsonResultDetail
-                //                            jsonColumnMapping = jsonColumnMapping + (jsonValue -> jsonInfo)
-                //                            jsonColumnMapping = jsonColumnMapping + (jsonResult -> jsonInfo)
-                //                            jsonColumnMapping = jsonColumnMapping + (jsonResultDetail -> jsonInfo)
-                //                        }
-                //                    }
-                //                )
                 for(item <- itemList){
                     infoFielids = infoFielids :+ item
                     val jsonResult = item + "@result"
@@ -111,7 +95,7 @@ println("-----------------> export bigtable to file: " + id + ", start_time:" + 
             )
 
             testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.withColumn(jsonInfo, from_json(col(jsonInfo), schema))
-              .persist(StorageLevel.MEMORY_AND_DISK_SER_2)
+              .persist(StorageLevel.MEMORY_AND_DISK)
             for (column <- infoFielids) {
                 testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.withColumn(column, col(jsonInfo).getItem(column))
             }

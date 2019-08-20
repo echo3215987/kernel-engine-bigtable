@@ -115,7 +115,6 @@ object XWJBigtable {
     import spark.implicits._
     val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
 
-    //s3a://" + bucket + "/
     val datasetColumnStr = configLoader.getString("dataset", "setting_col")
 
     val datasetColumnNames = configLoader.getString("dataset", "bigtable_datatype_col")
@@ -145,7 +144,7 @@ object XWJBigtable {
       println("datasetSql:" + datasetSql)
 
       val datasetDf = mariadbUtils.getDfFromMariadbWithQuery(spark, datasetSql, numExecutors)
-        .filter($"item".isNotNull.and($"station".isNotNull))
+        .filter($"item".isNotNull.and($"station".isNotNull)).orderBy(col("id").asc)
       datasetDf.show(false)
 
 //      var datasetDf = mariadbUtils.execSqlToMariadbToDf(spark, datasetSql, datasetColumnStr)
@@ -181,9 +180,13 @@ object XWJBigtable {
 
         //展開json欄位匯出csv提供客戶下載, 並將大表欄位儲存起來
         val (jsonColumnMapping, columnNames) = Export.exportBigtableToCsv(spark, currentDatasetDf, currentDatasetStationItemDf, id, testDeailResultGroupByFirstDf)
-
 println("-----------------> extract bigtable column datatype: " + id + ", start_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+
+println("id :" + id + " sn count:" + testDeailResultGroupByFirstDf.select("sn").dropDuplicates().count())
+        //release memory
+        testDeailResultGroupByFirstDf.unpersist()
+
         //存大表的欄位型態datatype到mysql
         //讀取datatype欄位
         val dataTypeCondition = "product = '" + product + "'" + " and station_name in (" + stationList.map(s => "'" + s + "'").mkString(",") + ")" +
@@ -224,7 +227,7 @@ println("-----------------> extract bigtable column datatype: " + id + ", end_ti
 
 println("gen bigtable id: " + id + " end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
-println("id :" + id + " sn count:" + testDeailResultGroupByFirstDf.select("sn").dropDuplicates().count())
+
       }
 
       val jobEndTime: String = new SimpleDateFormat(
