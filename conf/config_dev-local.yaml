@@ -12,24 +12,28 @@ minio:
 
 cockroachdb:
     adapter:    "postgresql"
-    host:       "10.57.232.61"
+    host1:       "10.57.232.61"
+    host2:       "10.57.232.62"
+    host3:       "10.57.232.63"
     port:       "26257"
     sslmode:    "require"
     database:   "rca-dev"
-    #database:   "rca-ipbd-lx-printer"
     username:   "bigdata"
     password:   "bigdata"
-    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}"
+   #conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}"
+    conn_str:   "jdbc:{{adapter}}://{{host1}}:{{port}},{{host2}}:{{port}},{{host3}}:{{port}}/{{database}}"
 
 mariadb:
     adapter:    "mysql"
+    loadbalance: "loadbalance"
     host:       "10.57.232.61"
     port:       "3308"
     database:   "rca-dev"
     #database:   "rca-staging-ipbd-lx-printer"
     username:   "edgeserver"
     password:   "Foxconn123654!@"
-    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
+  #    conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
+    conn_str:    "jdbc:{{adapter}}:{{loadbalance}}://{{host}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
 
 general:
     factory: "CQ"
@@ -122,7 +126,7 @@ log_prop:
     test_detail_table: "test_detail"
     test_detail_dt_fmt: "yyyy-MM-dd HH:mm:ss"
     #test_detail_filter_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,create_time,update_time,station_name,start_date,product,test_version,"
-    test_detail_filter_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,create_time,update_time,station_name,start_date,product,test_version,scantime,scan_floor,id,wo,"
+    test_detail_filter_col: "sn,build_name,build_description,unit_number,station_id,test_status,test_starttime,test_endtime,list_of_failure,list_of_failure_detail,test_phase,machine_id,factory_code,floor,line_id,create_time,update_time,station_name,start_date,product,test_version,scantime,scan_floor,id,wo,line,"
 
     #CHEB_||_296269793_||_CEB1_||_V1N01B#629_||_V1N01B#629_||_V1N01B#629_||_1_||_CHEB_WO_20190524171446.dat_||_SOR_||_ZFRT_||__||_HP DeskJet 2620 All-in-One Printer_||_20190523_||_P2_||_20190523
     #SELECT product, build_name, file_name, wo, wo_type, plant_code, vendor_pn, hhpn, plan_qty, config, component_type, main_wo, upsert_time

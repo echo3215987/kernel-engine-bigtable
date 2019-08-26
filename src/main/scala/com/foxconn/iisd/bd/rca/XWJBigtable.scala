@@ -17,7 +17,6 @@ import org.apache.spark.storage.StorageLevel
 
 
 object XWJBigtable {
-
   var configLoader = new ConfigLoader()
   val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
 

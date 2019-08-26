@@ -104,20 +104,20 @@ println("-----------------> select testdetail first / last -> end_time:" + new S
 configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
 //testDeailResultGroupByFirstDf.show(1, false)
-        //紀錄part_master資訊
+        //紀錄part_master資訊與part_detail line欄位
         //先調整part_master的id欄位名稱
         var partMasterDf = testDeailResultGroupByFirstDf
           .drop(col("floor")) //刪除測試樓層
           .dropDuplicates("sn")
           .withColumnRenamed("scan_floor", "floor") //更改組裝樓層名稱scan_floor -> floor
-          .select("sn", "wo", "id", "scantime", "floor")
+          .select("sn", "wo", "id", "scantime", "floor", "line")
 
         //以每個dataset, 收斂成一個工站資訊
         testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
-          .drop("wo", "id", "scantime", "floor") //刪除組裝主表的相關欄位
+          .drop("wo", "id", "scantime", "floor", "line") //刪除組裝主表與細表的相關欄位
           .join(currentDatasetDf, Seq("product"), "left")
           .join(currentDatasetStationItemDF.select("station_name", "item"), Seq("station_name"), "left")
-
+          .persist(StorageLevel.MEMORY_AND_DISK_SER)
         var map = Map[String, String]()
         var list = List[String]()
         stationInfoColumn.split(",").foreach(attr => {
@@ -164,13 +164,14 @@ configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime
           //新增sn_type, 紀錄是整機還是非整機測試(比對測試明細sn vs unit_number), 目前先維持定值, 之後有需要分整機或非整機測試再處理
           .withColumn("sn_type", lit("wip")) //unit
 
+//v2改到xwj ke處理
         //串工單數據與關鍵物料
         //組裝主表撈出sn對應的wo
-        val snList = testDeailResultGroupByFirstDf.select("sn").dropDuplicates().map(_.getString(0)).collect.toList
-        val snCondition = "sn in (" + snList.map(s => "'" + s + "'").mkString(",") + ")"
+//        val snList = testDeailResultGroupByFirstDf.select("sn").dropDuplicates().map(_.getString(0)).collect.toList
+//        val snCondition = "sn in (" + snList.map(s => "'" + s + "'").mkString(",") + ")"
 //        println(snCondition)
 
-      //v2改到xwj ke處理
+
 //println("-----------------> select part table (first scantime) where sn, product start_time:" + new SimpleDateFormat(
 //  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
@@ -266,7 +267,7 @@ println("-----------------> select part_sn, end_time:" + new SimpleDateFormat(
         })
 
         partMasterDf = partMasterDf
-          .select("sn", "floor", "scantime", "wo")
+          .select("sn", "floor", "scantime", "wo", "line")
           .dropDuplicates()
 
         //一個工單號或對到多個config?
@@ -300,6 +301,7 @@ println("-----------------> select part_sn, end_time:" + new SimpleDateFormat(
           "`station_info` json Not NULL," +
           "`item_info` json Not NULL," +
           "`floor` varchar(50) DEFAULT NULL," + //組裝樓層
+          "`line` varchar(50) DEFAULT NULL," + //組裝線別
           "`scantime` datetime DEFAULT NULL," +
           "`wo` varchar(50) DEFAULT NULL," +
           "`wo_type` varchar(50) DEFAULT NULL," +
@@ -314,7 +316,7 @@ println("-----------------> select part_sn, end_time:" + new SimpleDateFormat(
         testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
           .withColumnRenamed("name", "data_set_name")
           .withColumnRenamed("id", "data_set_id")
-          .persist(StorageLevel.MEMORY_AND_DISK)
+          .persist(StorageLevel.MEMORY_AND_DISK_SER)
 
 println("-----------------> drop and insert bigtable: " + id + ", start_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))

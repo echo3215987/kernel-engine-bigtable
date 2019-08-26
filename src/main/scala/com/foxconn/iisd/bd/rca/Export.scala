@@ -51,7 +51,7 @@ println("-----------------> export bigtable to file: " + id + ", start_time:" + 
         for(jsonInfo <- jsonColumns){
             testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
               .withColumn(jsonInfo, regexp_replace(col(jsonInfo), "'", ""))
-              .persist(StorageLevel.MEMORY_AND_DISK)
+              .persist(StorageLevel.MEMORY_AND_DISK_SER)
         }
 
         //station 與 component json固定資訊
@@ -95,7 +95,7 @@ println("-----------------> export bigtable to file: " + id + ", start_time:" + 
             )
 
             testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.withColumn(jsonInfo, from_json(col(jsonInfo), schema))
-              .persist(StorageLevel.MEMORY_AND_DISK)
+              .persist(StorageLevel.MEMORY_AND_DISK_SER)
             for (column <- infoFielids) {
                 testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.withColumn(column, col(jsonInfo).getItem(column))
             }
