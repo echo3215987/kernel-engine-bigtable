@@ -223,13 +223,9 @@ println("id :" + id + " sn count:" + testDeailResultGroupByFirstDf.select("sn").
         val dataTypeCondition = "product = '" + product + "'" + " and station_name in (" + stationList.map(s => "'" + s + "'").mkString(",") + ")" +
           " and test_item in (" + itemList.map(s => "'" + s + "'").mkString(",") + ")"
         val dataTypeSql = "select test_item,test_item_datatype from " + productItemSpecTable + " where " + dataTypeCondition
-println(dataTypeSql)
+
         val dataTypeDF = mariadbUtils.getDfFromMariadbWithQuery(spark, dataTypeSql, numExecutors)
         val dataTypeMap = dataTypeDF.select($"test_item", $"test_item_datatype").as[(String, String)].collect.toMap
-
-        for(c <- columnNames){
-          println(c)
-        }
 
         var datasetColumnsList = List[Row]()
         for (column <- columnNames) {
