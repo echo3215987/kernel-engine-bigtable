@@ -1,6 +1,7 @@
 package com.foxconn.iisd.bd.rca
 
 import java.io.FileNotFoundException
+import java.net.InetAddress
 import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -20,22 +21,72 @@ object XWJBigtable {
   var configLoader = new ConfigLoader()
   val datetimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.US)
 
+  var totalRawDataSize: Long = 0
+  val mb = 1024*1024
+  val runtime = Runtime.getRuntime
+  var jobId = ""
+  var jobYear = ""
+  var jobMonth = ""
+  var jobDay = ""
+  var jobHour = ""
+  var jobMinute = ""
+  var jobSecond = ""
+  var jobStatus = false
+  var testDetailPath = ""
+  var woPath = ""
+  var matPath = ""
+
   def main(args: Array[String]): Unit = {
 
     val limit = 1
     var count = 0
 
-    println("xwj-bigtable-v1:")
+    println("xwj-bigtable-v3:")
 
     while (count < limit) {
+
       println(s"count: $count")
 
+      configLoader.setDefaultConfigPath("""conf/default.yaml""")
+      if (args.length == 1) {
+        configLoader.setDefaultConfigPath(args(0))
+      }
+
+      jobId = getHostName()
+      println("job id : " + jobId)
+
+      val sparkBuilder = SparkSession
+        .builder
+        .appName(configLoader.getString("spark", "job_name"))
+        .master(configLoader.getString("spark", "master"))
+
+      val confStr = configLoader.getString("spark", "conf")
+
+      val confAry = confStr.split(";").map(_.trim)
+      for(i <- 0 until confAry.length) {
+        val configKeyValue = confAry(i).split("=").map(_.trim)
+        println("conf ===> " + configKeyValue(0) + " : " + configKeyValue(1))
+        sparkBuilder.config(configKeyValue(0), configKeyValue(1))
+      }
+
+      val spark = sparkBuilder.getOrCreate()
+
+      val configMap = spark.conf.getAll
+      for ((k,v) <- configMap) {
+        println("[" + k + " = " + v + "]")
+      }
+
       try {
-        configLoader.setDefaultConfigPath("""conf/default.yaml""")
-        if (args.length == 1) {
-          configLoader.setDefaultConfigPath(args(0))
-        }
-        XWJBigtable.start()
+//                jobId = "rca-ke-dev-uuid-20190828100000-driver"
+        jobYear = jobId.split("-uuid-")(1).split("-")(0).slice(0, 4)
+        jobMonth = jobId.split("-uuid-")(1).split("-")(0).slice(4, 6)
+        jobDay = jobId.split("-uuid-")(1).split("-")(0).slice(6, 8)
+        jobHour = jobId.split("-uuid-")(1).split("-")(0).slice(8, 10)
+        jobMinute = jobId.split("-uuid-")(1).split("-")(0).slice(10, 12)
+        jobSecond = jobId.split("-uuid-")(1).split("-")(0).slice(12, 14)
+        //        Summary.setJobId(jobId) TODO
+
+        XWJBigtable.start(spark)
       } catch {
         case ex: Exception => {
           ex.printStackTrace()
@@ -49,8 +100,11 @@ object XWJBigtable {
 
   }
 
-  def start(): Unit = {
-
+  def start(spark: SparkSession): Unit = {
+    println("** Used Memory:  " + (runtime.totalMemory - runtime.freeMemory) / mb + " MB")
+    println("** Free Memory:  " + runtime.freeMemory / mb + " MB")
+    println("** Total Memory: " + runtime.totalMemory / mb + " MB")
+    println("** Max Memory:   " + runtime.maxMemory / mb + " MB")
 
     var date = new Date()
     val flag = date.getTime().toString
@@ -66,31 +120,10 @@ object XWJBigtable {
     println("next execute time : " + nextExcuteTime)
     //    Summary.setJobStartTime(jobStartTime)
 
-    println(s"flag: $flag" + ": xwj")
+    println(s"flag: $flag")
 
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
-
-    val sparkBuilder = SparkSession
-      .builder
-      .appName(configLoader.getString("spark", "job_name"))
-      .master(configLoader.getString("spark", "master"))
-
-    val confStr = configLoader.getString("spark", "conf")
-
-    val confAry = confStr.split(";").map(_.trim)
-    for (i <- 0 until confAry.length) {
-      val configKeyValue = confAry(i).split("=").map(_.trim)
-      println("conf ===> " + configKeyValue(0) + " : " + configKeyValue(1))
-      sparkBuilder.config(configKeyValue(0), configKeyValue(1))
-    }
-
-    val spark = sparkBuilder.getOrCreate()
-
-    val configMap = spark.conf.getAll
-    for ((k, v) <- configMap) {
-      println("[" + k + " = " + v + "]")
-    }
 
     configLoader.setConfig2SparkAddFile(spark)
 
@@ -146,9 +179,6 @@ object XWJBigtable {
         .filter($"item".isNotNull.and($"station".isNotNull)).orderBy(col("id").asc)
       datasetDf.show(false)
 
-//      var datasetDf = mariadbUtils.execSqlToMariadbToDf(spark, datasetSql, datasetColumnStr)
-//      datasetDf.show(false)
-
       val datasetGroupByProductIdDF = datasetDf.groupBy("product", "id", "name")
         .agg(collect_set("station").as("station"),
           collect_set("item").as("item"),
@@ -174,7 +204,7 @@ object XWJBigtable {
           .withColumnRenamed("station", "station_name")
 
         //create bigtable
-        val testDeailResultGroupByFirstDf = Bigtable.createBigtable(spark, row, currentDatasetDf.drop("item"),
+        val (testDeailResultGroupByFirstDf, fieldsColumnDataType) = Bigtable.createBigtable(spark, row, currentDatasetDf.drop("item"),
           currentDatasetStationItemDf, id, jobStartTime, nextExcuteTime)
 
         //展開json欄位匯出csv提供客戶下載, 並將大表欄位儲存起來
@@ -183,6 +213,8 @@ println("-----------------> extract bigtable column datatype: " + id + ", start_
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
 println("id :" + id + " sn count:" + testDeailResultGroupByFirstDf.select("sn").dropDuplicates().count())
+        //紀錄datatype
+        val fieldDataTypeMap = fieldsColumnDataType.map(field => (field.name, field.dataType)).toMap
         //release memory
         testDeailResultGroupByFirstDf.unpersist()
 
@@ -191,8 +223,13 @@ println("id :" + id + " sn count:" + testDeailResultGroupByFirstDf.select("sn").
         val dataTypeCondition = "product = '" + product + "'" + " and station_name in (" + stationList.map(s => "'" + s + "'").mkString(",") + ")" +
           " and test_item in (" + itemList.map(s => "'" + s + "'").mkString(",") + ")"
         val dataTypeSql = "select test_item,test_item_datatype from " + productItemSpecTable + " where " + dataTypeCondition
+println(dataTypeSql)
         val dataTypeDF = mariadbUtils.getDfFromMariadbWithQuery(spark, dataTypeSql, numExecutors)
         val dataTypeMap = dataTypeDF.select($"test_item", $"test_item_datatype").as[(String, String)].collect.toMap
+
+        for(c <- columnNames){
+          println(c)
+        }
 
         var datasetColumnsList = List[Row]()
         for (column <- columnNames) {
@@ -200,14 +237,20 @@ println("id :" + id + " sn count:" + testDeailResultGroupByFirstDf.select("sn").
           if (jsonColumnMapping.contains(column)) {
             jsonType = jsonColumnMapping.apply(column)
           }
-          var columnTemp = column
+
+          //判斷datatype
           var dataType = "string"
-          if (jsonType.equals(itemInfo) && column.contains("@")) {
+          var columnTemp = column
+          if (column.contains("@")) {
             columnTemp = column.split("@")(1)
           }
-          if (dataTypeMap.contains(columnTemp)) {
+          if (jsonType.equals(itemInfo) && dataTypeMap.contains(columnTemp)) {//selected item datatype
             dataType = dataTypeMap.apply(columnTemp)
           }
+          else if(fieldDataTypeMap.contains(columnTemp)){//select test_detail column
+            dataType = fieldDataTypeMap.apply(columnTemp).toString.toLowerCase.replace("type", "").replace("eger", "")
+          }
+
           datasetColumnsList = datasetColumnsList :+ Row(id, column, dataType, jsonType)
         }
         val rdd = spark.sparkContext.makeRDD(datasetColumnsList)
@@ -241,4 +284,17 @@ println("gen bigtable id: " + id + " end_time:" + new SimpleDateFormat(
     }
   }
 
+  def getHostName(): String = {
+    var hostName = ""
+    try {
+      val ip = InetAddress.getLocalHost()
+      hostName = ip.getHostName
+    } catch {
+      case ex: Exception => {
+        println("===> Get Pod Hostname Exception !!!")
+        ex.printStackTrace()
+      }
+    }
+    hostName
+  }
 }

@@ -57,7 +57,7 @@ object Bigtable{
 
     def createBigtable(spark: SparkSession, row: Row, currentDatasetDf: DataFrame,
                        currentDatasetStationItemDf: DataFrame, id: String,
-                       jobStartTime: String, nextExcuteTime: String): DataFrame ={
+                       jobStartTime: String, nextExcuteTime: String) ={
         import spark.implicits._
         val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
 
@@ -102,6 +102,8 @@ println("-----------------> select testdetail first / last -> start_time:" + new
         }
 println("-----------------> select testdetail first / last -> end_time:" + new SimpleDateFormat(
 configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+
+      val fieldsColumnDataType = testDeailResultGroupByFirstDf.schema.fields
 
 //testDeailResultGroupByFirstDf.show(1, false)
         //紀錄part_master資訊與part_detail line欄位
@@ -341,7 +343,7 @@ println("-----------------> drop and insert bigtable: " + id + ", start_time:" +
 
 println("-----------------> drop and insert bigtable: " + id + ", end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
-        testDeailResultGroupByFirstDf
+       (testDeailResultGroupByFirstDf, fieldsColumnDataType)
 
     }
 }
