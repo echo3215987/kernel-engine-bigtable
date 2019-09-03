@@ -238,7 +238,10 @@ println("id :" + id + " sn count:" + testDeailResultGroupByFirstDf.select("sn").
           var dataType = "string"
           var columnTemp = column
           if (column.contains("@")) {
-            columnTemp = column.split("@")(1)
+            //split 只切割第一個@ =>
+            // 1. TLEOL@PcaVerifyFirmwareRev^DActualFWUpdate => PcaVerifyFirmwareRev^DActualFWUpdate
+            // 2. TLEOL@PcaVerifyFirmwareRev^DActualFWUpdate@result => PcaVerifyFirmwareRev^DActualFWUpdate@result
+            columnTemp = column.split("@", 2)(1)
           }
           if (jsonType.equals(itemInfo) && dataTypeMap.contains(columnTemp)) {//selected item datatype
             dataType = dataTypeMap.apply(columnTemp)
