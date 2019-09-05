@@ -1,13 +1,16 @@
 spark:
     job_name: "dev-xwj-KernelEngineBigTable"
-    master: "k8s://192.168.1.63:6443"
-    conf: "spark.driver.memory=6g;
-       spark.executor.memory=6g;
-       spark.executor.instances=5;
-       spark.memory.offHeap.enabled=true;
-       spark.memory.offHeap.size=4g;
-       spark.eventLog.dir=/mnt/fuse_cephfs/data/spark/eventLog;
-       spark.eventLog.enabled=true"
+    master: "local"
+    conf: "spark.driver.memory=4g;
+           spark.executor.memory=4g"
+#    master: "k8s://192.168.1.63:6443"
+#    conf: "spark.driver.memory=6g;
+#       spark.executor.memory=6g;
+#       spark.executor.instances=5;
+#       spark.memory.offHeap.enabled=true;
+#       spark.memory.offHeap.size=4g;
+#       spark.eventLog.dir=/mnt/fuse_cephfs/data/spark/eventLog;
+#       spark.eventLog.enabled=true"
 
 minio:
     endpoint:   "http://10.57.232.167:31359"

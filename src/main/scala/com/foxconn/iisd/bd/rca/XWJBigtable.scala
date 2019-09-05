@@ -77,7 +77,7 @@ object XWJBigtable {
       }
 
       try {
-//                jobId = "rca-ke-dev-uuid-20190828100000-driver"
+                jobId = "rca-ke-dev-uuid-20190828100000-driver"
         jobYear = jobId.split("-uuid-")(1).split("-")(0).slice(0, 4)
         jobMonth = jobId.split("-uuid-")(1).split("-")(0).slice(4, 6)
         jobDay = jobId.split("-uuid-")(1).split("-")(0).slice(6, 8)
@@ -186,7 +186,6 @@ object XWJBigtable {
 
       //      val datasetGroupByProductIdList = datasetGroupByProductIdDF.select("product", "id", "station", "item", "component").collect.toList
       val datasetGroupByProductIdList = datasetGroupByProductIdDF.select("product", "id", "station", "component").collect.toList
-
 
       //依每個資料集id建大表
       for (row <- datasetGroupByProductIdList) {

@@ -85,11 +85,13 @@ println("-----------------> select testdetail first / last -> start_time:" + new
             val testdetailSql = "select " + testdetailFilterColumn.split(",").map(col => "t2." + col).mkString(",") + "," +
               stationItemRow.getAs("selectSql") +
               " from " + testdetailTable + " as t2, " +
-              "(select sn, station_name, agg_function(test_starttime) as test_starttime from " + testdetailTable + whereSql +
-              " group by sn, station_name) as t1 " +
-              " where t2.sn=t1.sn and t2.station_name = t1.station_name and t1.test_starttime=t2.test_starttime"
-//            println(row)
-//            println(testdetailSql)
+          //收大產品把sn改成id
+//              "(select sn, station_name, agg_function(test_starttime) as test_starttime from " + testdetailTable + whereSql +
+//              " group by sn, station_name) as t1 " +
+//              " where t2.sn=t1.sn and t2.station_name = t1.station_name and t1.test_starttime=t2.test_starttime"
+              "(select id, station_name, agg_function(test_starttime) as test_starttime from " + testdetailTable + whereSql +
+              " group by id, station_name) as t1 " +
+              " where t2.id=t1.id and t2.station_name = t1.station_name and t1.test_starttime=t2.test_starttime"
 
             for (agg <- aggFunction) {
                 val rank = aggMap.apply(agg)
@@ -104,7 +106,8 @@ println("-----------------> select testdetail first / last -> end_time:" + new S
 configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
       val fieldsColumnDataType = testDeailResultGroupByFirstDf.schema.fields
-
+//      Cartridge大產品(id 改成 sn)
+      testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.withColumn("sn", col("id"))
 //testDeailResultGroupByFirstDf.show(1, false)
         //紀錄part_master資訊與part_detail line欄位
         //先調整part_master的id欄位名稱
