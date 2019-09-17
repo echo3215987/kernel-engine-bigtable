@@ -188,7 +188,6 @@ configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime
 //println("-----------------> select part table (first scantime) where sn, product end_time:" + new SimpleDateFormat(
 //configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-        val partMasterIdList = partMasterDf.select("id").dropDuplicates().map(_.getString(0)).collect.toList
 
         val woList = partMasterDf
 //          .filter(col("wo").notEqual("N/A"))
@@ -220,6 +219,7 @@ println("-----------------> select config_component, start_time:" + new SimpleDa
 println("-----------------> select config_component, end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
+        val partMasterIdList = partMasterDf.select("id").dropDuplicates().map(_.getString(0)).collect.toList
         //dataset選的關鍵物料
         val partDetailCondition = "id in (" + partMasterIdList.map(s => "'" + s + "'").mkString(",") + ") " +
           " and part in (" + componentList.map(s => "'" + s + "'").mkString(",") + ")"
