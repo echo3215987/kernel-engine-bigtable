@@ -76,7 +76,6 @@ object SparkUDF{
             var value = Seq[String]()
             if(first == 1 && last == 1){
                 value = value ++ Seq("first", "last")
-                //value :+ "last"
             }
             else if(first == 1)
                 value = value :+ "first"
@@ -152,8 +151,11 @@ object SparkUDF{
     //組成test detail where條件
     def genTestDetailSelectSql = udf {
         (colNames: Seq[String], item: Seq[String]) =>{
+//            colNames.map(colName =>
+//                item.map(i => "'"+i+"'," + "t2." + colName + "->>'" + i + "'").mkString("jsonb_build_object(",",",") as " + colName)
+//            ).mkString(",")
             colNames.map(colName =>
-                item.map(i => "'"+i+"'," + "t2." + colName + "->>'" + i + "'").mkString("jsonb_build_object(",",",") as " + colName)
+                item.map(i => "'"+i+"'," + colName + "->>'" + i + "'").mkString("jsonb_build_object(",",",") as " + colName)
             ).mkString(",")
         }
     }

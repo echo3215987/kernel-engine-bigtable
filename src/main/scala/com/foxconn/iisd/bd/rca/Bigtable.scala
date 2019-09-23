@@ -4,10 +4,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import com.foxconn.iisd.bd.rca.SparkUDF.{genInfo, genItemJsonFormat, genStaionJsonFormat, genTestDetailSelectSql, transferArrayToString}
+import com.foxconn.iisd.bd.rca.SparkUDF.{genInfo, genItemJsonFormat, genStaionJsonFormat, genTestDetailSelectSql, transferArrayToString, getFirstOrLastRow}
 import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.StringType
 import org.apache.spark.storage.StorageLevel
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
@@ -55,7 +56,27 @@ object Bigtable{
 
     val componentInfo = configLoader.getString("dataset", "component_info_str")
 
-    def createBigtable(spark: SparkSession, row: Row, currentDatasetDf: DataFrame,
+//    group by id, staion_name, order by test_starttime
+    val wSpecTestDetailAsc = Window.partitionBy(col("id"), col("station_name"))
+      .orderBy(asc("test_starttime"))
+
+    val wSpecTestDetailDesc = Window.partitionBy(col("id"), col("station_name"))
+      .orderBy(desc("test_starttime"))
+
+    //group by wo, order by release_date desc, 取第一筆
+    val wSpecWoDesc = Window.partitionBy(col("wo"))
+      .orderBy(desc("release_date"))
+
+    //group by sn, order by scantime asc, 取第一筆, 改到ke處理
+//    val wSpecPartMasterAsc = Window.partitionBy(col("sn"))
+//      .orderBy(asc("scantime"))
+
+    //group by part, order by scantime asc, 取第一筆
+    val wSpecDetailAsc = Window.partitionBy(col("part"))
+      .orderBy(asc("scantime"))
+
+
+  def createBigtable(spark: SparkSession, row: Row, currentDatasetDf: DataFrame,
                        currentDatasetStationItemDf: DataFrame, id: String,
                        jobStartTime: String, nextExcuteTime: String) ={
         import spark.implicits._
@@ -81,28 +102,43 @@ println("-----------------> select testdetail first / last -> start_time:" + new
 
         for(stationItemRow <- currentDatasetStationItemList){
             //撈測試結果細表的條件
-            val whereSql = IoUtils.genTestDetailWhereSQL(row.getAs("product"), stationItemRow.getAs("station_name"))
-            val testdetailSql = "select " + testdetailFilterColumn.split(",").map(col => "t2." + col).mkString(",") + "," +
-              stationItemRow.getAs("selectSql") +
-              " from " + testdetailTable + " as t2, " +
-          //收大產品把sn改成id
-//              "(select sn, station_name, agg_function(test_starttime) as test_starttime from " + testdetailTable + whereSql +
-//              " group by sn, station_name) as t1 " +
-//              " where t2.sn=t1.sn and t2.station_name = t1.station_name and t1.test_starttime=t2.test_starttime"
-              "(select id, station_name, agg_function(test_starttime) as test_starttime from " + testdetailTable + whereSql +
-              " group by id, station_name) as t1 " +
-              " where t2.id=t1.id and t2.station_name = t1.station_name and t1.test_starttime=t2.test_starttime"
+//            val whereSql = IoUtils.genTestDetailWhereSQL(row.getAs("product"), stationItemRow.getAs("station_name"))
+//            val testdetailSql = "select " + testdetailFilterColumn.split(",").map(col => "t2." + col).mkString(",") + "," +
+//              stationItemRow.getAs("selectSql") +
+//              " from " + testdetailTable + " as t2, " +
+//          //收大產品把sn改成id
+//              "(select id, station_name, agg_function(test_starttime) as test_starttime from " + testdetailTable + whereSql +
+//              " group by id, station_name) as t1 " +
+//              " where t2.id=t1.id and t2.station_name = t1.station_name and t1.test_starttime=t2.test_starttime"
+//
+//            for (agg <- aggFunction) {
+//                val rank = aggMap.apply(agg)
+//                val tempDf = IoUtils.getDfFromCockroachdb(spark, testdetailSql.replace("agg_function", agg), numExecutors)
+//                  .withColumn("value_rank", lit(rank))
+//                if (testDeailResultGroupByFirstDf.isEmpty)
+//                    testDeailResultGroupByFirstDf = tempDf
+//                testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.union(tempDf)
+//            }
+//            子查詢改用過濾初步條件後, 撈回來的資料用spark group by取第一筆在memory處理
+              val whereSql = IoUtils.genTestDetailWhereSQL(row.getAs("product"), stationItemRow.getAs("station_name")) + " and id is not null"
+              val testdetailSql = "select " + testdetailFilterColumn.split(",").mkString(",") + "," +
+                        stationItemRow.getAs("selectSql") + " from " + testdetailTable + whereSql
+              val tempDf = IoUtils.getDfFromCockroachdb(spark, testdetailSql, numExecutors)
+              if (testDeailResultGroupByFirstDf.isEmpty)
+                  testDeailResultGroupByFirstDf = tempDf
+              else
+                  testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.union(tempDf)
 
-            for (agg <- aggFunction) {
-                val rank = aggMap.apply(agg)
-                val tempDf = IoUtils.getDfFromCockroachdb(spark, testdetailSql.replace("agg_function", agg), numExecutors)
-                  .withColumn("value_rank", lit(rank))
-                if (testDeailResultGroupByFirstDf.isEmpty)
-                    testDeailResultGroupByFirstDf = tempDf
-                testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.union(tempDf)
-            }
         }
-println("-----------------> select testdetail first / last -> end_time:" + new SimpleDateFormat(
+//          取scantime第一筆或最後一筆
+            testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
+              .withColumn("asc_rank", rank().over(wSpecTestDetailAsc))
+              .withColumn("desc_rank", rank().over(wSpecTestDetailDesc))
+              .where($"asc_rank".equalTo(1).or($"desc_rank".equalTo(1)))
+              .withColumn("value_rank", getFirstOrLastRow($"asc_rank", $"desc_rank"))
+              .withColumn("value_rank", explode($"value_rank")).persist(StorageLevel.MEMORY_AND_DISK_SER)
+
+    println("-----------------> select testdetail first / last -> end_time:" + new SimpleDateFormat(
 configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
       val fieldsColumnDataType = testDeailResultGroupByFirstDf.schema.fields
@@ -188,111 +224,133 @@ configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime
 //println("-----------------> select part table (first scantime) where sn, product end_time:" + new SimpleDateFormat(
 //configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-
         val woList = partMasterDf
-//          .filter(col("wo").notEqual("N/A"))
+            .filter(col("wo").notEqual("N/A"))
             .select("wo").dropDuplicates().map(_.getString(0)).collect.toList
-        val woCondition = "wo in (" + woList.map(s => "'" + s + "'").mkString(",") + ")"
-//        println(woCondition)
-println("-----------------> select wo, start_time:" + new SimpleDateFormat(
-  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+        var woDf = spark.emptyDataFrame
+        var comDf = spark.emptyDataFrame
+        var partDetailDf = spark.emptyDataFrame
+        if(woList.size > 0){
 
-        val woWhereSql = "select wo,wo_type,plant_code,plan_qty,config,build_name,release_date from " + woTable + " where " + woCondition
-        var woDf = IoUtils.getDfFromCockroachdb(spark, woWhereSql, numExecutors)
+          println("-----------------> select wo, start_time:" + new SimpleDateFormat(
+            configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-println("-----------------> select wo, end_time:" + new SimpleDateFormat(
-  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+          val woCondition = "wo in (" + woList.map(s => "'" + s + "'").mkString(",") + ")"
+          //        println(woCondition)
+          val woWhereSql = "select wo,wo_type,plant_code,plan_qty,config,build_name,release_date from " + woTable + " where " + woCondition
+          woDf = IoUtils.getDfFromCockroachdb(spark, woWhereSql, numExecutors)
 
-        //只撈關鍵物料的component
-        val componentList = currentDatasetDf.selectExpr("explode(component)").dropDuplicates().map(_.getString(0)).collect.toList
-        val configList = woDf.select("config").dropDuplicates().map(_.getString(0)).collect.toList
+          println("-----------------> select wo, end_time:" + new SimpleDateFormat(
+            configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-        val componentCondition = "config in (" + configList.map(s => "'" + s + "'").mkString(",") + ") " +
-          "and component in (" + componentList.map(s => "'" + s + "'").mkString(",") + ")"
-//        println(componentCondition)
+          println("-----------------> select config_component, start_time:" + new SimpleDateFormat(
+            configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+          //只撈關鍵物料的component
+          val configList = woDf.select("config").dropDuplicates().map(_.getString(0)).collect.toList
+          val componentList = currentDatasetDf.selectExpr("explode(component)").dropDuplicates().map(_.getString(0)).collect.toList
 
-println("-----------------> select config_component, start_time:" + new SimpleDateFormat(
-  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
-        val comWhereSql = "select config,vendor,hhpn,oempn,component,component_type,input_qty from " + comTable + " where " + componentCondition
-        var comDf = IoUtils.getDfFromCockroachdb(spark, comWhereSql, numExecutors)
 
-println("-----------------> select config_component, end_time:" + new SimpleDateFormat(
-  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+          if(configList.size > 0 && componentList.size > 0){
+            val componentCondition = "config in (" + configList.map(s => "'" + s + "'").mkString(",") + ") " +
+              "and component in (" + componentList.map(s => "'" + s + "'").mkString(",") + ")"
+            //        println(componentCondition)
 
-        val partMasterIdList = partMasterDf.select("id").dropDuplicates().map(_.getString(0)).collect.toList
-        //dataset選的關鍵物料
-        val partDetailCondition = "id in (" + partMasterIdList.map(s => "'" + s + "'").mkString(",") + ") " +
-          " and part in (" + componentList.map(s => "'" + s + "'").mkString(",") + ")"
-//        println(partDetailCondition)
+            val comWhereSql = "select config,vendor,hhpn,oempn,component,component_type,input_qty from " + comTable + " where " + componentCondition
+            comDf = IoUtils.getDfFromCockroachdb(spark, comWhereSql, numExecutors)
+          }
 
-println("-----------------> select part_sn, start_time:" + new SimpleDateFormat(
-  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-        val detailSql = "select "  + detailFilterColumn.split(",").map(col => "t2." + col).mkString(",") + " from " + detailTable + " as t2, " +
-          "(select id, part, min(scantime) as scantime from " + detailTable + " where " + partDetailCondition + " group by id, part) as t1 " +
-          "where t2.id=t1.id and t2.part = t1.part and t1.scantime=t2.scantime"
-        var partDetailDf = IoUtils.getDfFromCockroachdb(spark, detailSql, numExecutors)
+          println("-----------------> select config_component, end_time:" + new SimpleDateFormat(
+            configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-println("-----------------> select part_sn, end_time:" + new SimpleDateFormat(
-  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+          println("-----------------> select part_sn, start_time:" + new SimpleDateFormat(
+            configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+          val partMasterIdList = partMasterDf.select("id").dropDuplicates().map(_.getString(0)).collect.toList
 
-//        partsn,vendor_code,date_code,part
-        val partDetailColumn = partDetailColumnStr.split(",")
+          if(partMasterIdList.size>0 && componentList.size>0){
+            //dataset選的關鍵物料
+            val partDetailCondition = "id in (" + partMasterIdList.map(s => "'" + s + "'").mkString(",") + ") " +
+              " and part in (" + componentList.map(s => "'" + s + "'").mkString(",") + ")"
 
-        partDetailDf = partDetailDf
-          .selectExpr(partDetailColumn: _*)
-          .withColumnRenamed("part", "component")
+            val partDetailWhereSql = "select " + detailFilterColumn.split(",").mkString(",") + " from " + detailTable + " where " + partDetailCondition
+            partDetailDf = IoUtils.getDfFromCockroachdb(spark, partDetailWhereSql, numExecutors)
 
-        comDf = comDf.join(partDetailDf, Seq("component"), "left")
+            //          val detailSql = "select "  + detailFilterColumn.split(",").map(col => "t2." + col).mkString(",") + " from " + detailTable + " as t2, " +
+            //            "(select id, part, min(scantime) as scantime from " + detailTable + " where " + partDetailCondition + " group by id, part) as t1 " +
+            //            "where t2.id=t1.id and t2.part = t1.part and t1.scantime=t2.scantime"
+            //          var partDetailDf = IoUtils.getDfFromCockroachdb(spark, detailSql, numExecutors)
 
-        //以每個dataset, 收斂成一個關鍵物料資訊
-        var comConfigMap = Map[String, String]()
-        var comConfigList = List[String]()
-        componentInfoColumn.split(",").foreach(attr => {
-            val attrStr = attr + "_str"
-            comDf = comDf
-              .withColumn(attrStr, genStaionJsonFormat(col(component), lit(attr), col(attr)))
-            comConfigMap = comConfigMap + (attrStr -> "collect_set")
-            comConfigList = comConfigList :+ "collect_set(" + attrStr + ")"
-        })
+            //取第一筆scantime組裝細表資料
+            //partsn,vendor_code,date_code,part
+            val partDetailColumn = partDetailColumnStr.split(",")
+            partDetailDf = partDetailDf
+              .withColumn("rank", rank().over(wSpecDetailAsc))
+              .where($"rank".equalTo(1))
+              .selectExpr(partDetailColumn: _*)
+              .withColumnRenamed("part", "component")
+          }
 
-        var datasetComponentDF = testDeailResultGroupByFirstDf.select("component").dropDuplicates()
-          .withColumn("component", explode(col("component")))
-          .join(comDf, Seq("component"), "left")
+          println("-----------------> select part_sn, end_time:" + new SimpleDateFormat(
+            configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-        //group by 並收斂關鍵物料資訊
-        datasetComponentDF = datasetComponentDF.groupBy("config")
-          .agg(comConfigMap)
-          .withColumn(componentInfo, array())
-
-        comConfigList.foreach(ele => {
-            datasetComponentDF = datasetComponentDF
-              .withColumn(componentInfo, genInfo(col(componentInfo), col(ele)))
-              .drop(ele) //刪除collect_set的多個工站資訊欄位
-        })
+        }
 
         partMasterDf = partMasterDf
           .select("sn", "floor", "scantime", "wo", "line")
           .dropDuplicates()
 
-        //一個工單號或對到多個config?
-        woDf = woDf.select("wo", "wo_type", "plant_code", "plan_qty", "config", "build_name", "release_date")
-        //group by wo, order by release_date desc, 取第一筆
-        val wSpecWoDesc = Window.partitionBy(col("wo"))
-          .orderBy(desc("release_date"))
-        woDf = woDf.withColumn("rank", rank().over(wSpecWoDesc))
-          .where($"rank".equalTo(1))
-          .drop("rank")
-          .drop("release_date")
-          .dropDuplicates("wo")
-        woDf = partMasterDf.join(woDf, Seq("wo"), "left")
-        woDf = woDf.join(datasetComponentDF, Seq("config"), "left")
+        if(comDf.isEmpty){
+          testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
+            .join(partMasterDf, Seq("sn"), "left")
+            .withColumn(componentInfo, lit(null).cast(StringType))
+            .drop("component")
 
-        //join 工單與關鍵物料
-        testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
-          .join(woDf, Seq("sn"), "left")
-          .withColumn(componentInfo, transferArrayToString(col(componentInfo)))
-          .drop("component")
+        }else{
+          comDf = comDf.join(partDetailDf, Seq("component"), "left")
+
+          //以每個dataset, 收斂成一個關鍵物料資訊
+          var comConfigMap = Map[String, String]()
+          var comConfigList = List[String]()
+          componentInfoColumn.split(",").foreach(attr => {
+            val attrStr = attr + "_str"
+            comDf = comDf
+              .withColumn(attrStr, genStaionJsonFormat(col(component), lit(attr), col(attr)))
+            comConfigMap = comConfigMap + (attrStr -> "collect_set")
+            comConfigList = comConfigList :+ "collect_set(" + attrStr + ")"
+          })
+
+          var datasetComponentDF = testDeailResultGroupByFirstDf.select("component").dropDuplicates()
+            .withColumn("component", explode(col("component")))
+            .join(comDf, Seq("component"), "left")
+
+          //group by 並收斂關鍵物料資訊
+          datasetComponentDF = datasetComponentDF.groupBy("config")
+            .agg(comConfigMap)
+            .withColumn(componentInfo, array())
+
+          comConfigList.foreach(ele => {
+            datasetComponentDF = datasetComponentDF
+              .withColumn(componentInfo, genInfo(col(componentInfo), col(ele)))
+              .drop(ele) //刪除collect_set的多個工站資訊欄位
+          })
+
+          //一個工單號或對到多個config?
+          woDf = woDf.select("wo", "wo_type", "plant_code", "plan_qty", "config", "build_name", "release_date")
+
+          woDf = woDf.withColumn("rank", rank().over(wSpecWoDesc))
+            .where($"rank".equalTo(1))
+            .drop("rank")
+            .drop("release_date")
+            .dropDuplicates("wo")
+          woDf = partMasterDf.join(woDf, Seq("wo"), "left")
+          woDf = woDf.join(datasetComponentDF, Seq("config"), "left")
+
+          //join 工單與關鍵物料
+          testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
+            .join(woDf, Seq("sn"), "left")
+            .withColumn(componentInfo, transferArrayToString(col(componentInfo)))
+            .drop("component")
+        }
 
 //        testDeailResultGroupByFirstDf.show(1, false)
 
@@ -334,15 +392,18 @@ println("-----------------> drop and insert bigtable: " + id + ", start_time:" +
         val createSql = "CREATE TABLE " + datasetTableName + " (" + schema
         mariadbUtils.execSqlToMariadb(createSql)
 
-        //insert 大表資料
-        mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
-        //update dataset 設定的欄位
-        val updateSql = "UPDATE data_set_setting" + " SET bt_name='" + datasetTableName.substring(1, datasetTableName.length - 1) + "'," +
-          " bt_create_time = COALESCE(bt_create_time, '" + jobStartTime + "')," +
-          " bt_last_time = '" + jobStartTime + "'," +
-          " bt_next_time = '" + nextExcuteTime + "'" +
-          " WHERE id = " + id
-        mariadbUtils.execSqlToMariadb(updateSql)
+//      //insert 大表資料  -> 改成 df.write
+//      mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
+        mariadbUtils.saveToMariadb(spark, testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
+
+
+        //update dataset 設定的欄位 -> 改到全部的資料集結束再處理
+//        val updateSql = "UPDATE data_set_setting" + " SET bt_name='" + datasetTableName.substring(1, datasetTableName.length - 1) + "'," +
+//          " bt_create_time = COALESCE(bt_create_time, '" + jobStartTime + "')," +
+//          " bt_last_time = '" + jobStartTime + "'," +
+//          " bt_next_time = '" + nextExcuteTime + "'" +
+//          " WHERE id = " + id
+//        mariadbUtils.execSqlToMariadb(updateSql)
 
 println("-----------------> drop and insert bigtable: " + id + ", end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))

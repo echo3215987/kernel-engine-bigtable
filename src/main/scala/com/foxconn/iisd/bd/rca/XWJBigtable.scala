@@ -6,7 +6,10 @@ import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.Date
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 
+import com.foxconn.iisd.bd.rca.Bigtable.mariadbUtils
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.functions.{regexp_extract, regexp_replace, _}
@@ -42,7 +45,6 @@ object XWJBigtable {
     var count = 0
 
     println("xwj-bigtable-v3:")
-
     while (count < limit) {
 
       println(s"count: $count")
@@ -76,8 +78,9 @@ object XWJBigtable {
         println("[" + k + " = " + v + "]")
       }
 
+
       try {
-                jobId = "rca-ke-dev-uuid-20190917100000-driver"
+//           jobId = "rca-ke-dev-uuid-20190920100000-driver"
         jobYear = jobId.split("-uuid-")(1).split("-")(0).slice(0, 4)
         jobMonth = jobId.split("-uuid-")(1).split("-")(0).slice(4, 6)
         jobDay = jobId.split("-uuid-")(1).split("-")(0).slice(6, 8)
@@ -268,6 +271,22 @@ println("-----------------> extract bigtable column datatype: " + id + ", end_ti
 println("gen bigtable id: " + id + " end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
+      }
+
+      val formatter = DateTimeFormatter.ofPattern(configLoader.getString("summary_log_path", "job_fmt"))
+      val genDatasetEndTime = LocalDateTime.now.plusHours(1).truncatedTo(ChronoUnit.HOURS).format(formatter)
+
+      //update dataset 設定的欄位 -> 改到全部的資料集結束再處理
+      for (row <- datasetGroupByProductIdList) {
+        val id = row.getAs[Long]("id").toString
+        val datasetTableName = "`data_set_bigtable@" + id + "`"
+
+        val updateSql = "UPDATE data_set_setting" + " SET bt_name='" + datasetTableName.substring(1, datasetTableName.length - 1) + "'," +
+          " bt_create_time = COALESCE(bt_create_time, '" + jobStartTime + "')," +
+          " bt_last_time = '" + jobStartTime + "'," + //排程執行時間
+          " bt_next_time = '" + genDatasetEndTime + "'" + //下一次執行時間
+          " WHERE id = " + id
+        mariadbUtils.execSqlToMariadb(updateSql)
       }
 
       val jobEndTime: String = new SimpleDateFormat(

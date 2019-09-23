@@ -7,6 +7,7 @@ import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
 import org.apache.spark.sql.{DataFrame, SparkSession, Row}
 import org.apache.spark.sql.types.{StructType, StructField, TimestampType, StringType, IntegerType}
 import org.apache.spark.rdd.JdbcRDD
+import org.apache.spark.sql.SaveMode
 
 class MariadbUtils {
 
@@ -214,5 +215,13 @@ class MariadbUtils {
             case ex => ex.printStackTrace()
         }
 
+    }
+
+    def saveToMariadb(spark: SparkSession, df: DataFrame, table: String, numExecutors: Int): Unit = {
+        df.write
+          .mode(SaveMode.Append)
+          .option("numPartitions", numExecutors)
+          .option("dbtable", table)
+          .jdbc(this.getMariadbUrl(), table, this.getMariadbConnectionProperties())
     }
 }
