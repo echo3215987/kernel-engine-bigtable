@@ -396,7 +396,6 @@ println("-----------------> drop and insert bigtable: " + id + ", start_time:" +
 //      mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
         mariadbUtils.saveToMariadb(spark, testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
 
-
         //update dataset 設定的欄位 -> 改到全部的資料集結束再處理
 //        val updateSql = "UPDATE data_set_setting" + " SET bt_name='" + datasetTableName.substring(1, datasetTableName.length - 1) + "'," +
 //          " bt_create_time = COALESCE(bt_create_time, '" + jobStartTime + "')," +

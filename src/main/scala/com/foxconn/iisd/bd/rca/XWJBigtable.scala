@@ -80,7 +80,7 @@ object XWJBigtable {
 
 
       try {
-//           jobId = "rca-ke-dev-uuid-20190920100000-driver"
+//           jobId = "rca-ke-dev-uuid-20190923100000-driver"
         jobYear = jobId.split("-uuid-")(1).split("-")(0).slice(0, 4)
         jobMonth = jobId.split("-uuid-")(1).split("-")(0).slice(4, 6)
         jobDay = jobId.split("-uuid-")(1).split("-")(0).slice(6, 8)
