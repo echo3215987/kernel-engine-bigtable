@@ -388,13 +388,18 @@ println("-----------------> drop and insert bigtable: " + id + ", start_time:" +
         //drop dataset bigtable
         val dropSql = "DROP TABLE IF EXISTS " + datasetTableName
         mariadbUtils.execSqlToMariadb(dropSql)
+
+        Thread.sleep(500)
+        //drop後, 先等五秒再create
+
         //truncate dataset bigtable schema
         val createSql = "CREATE TABLE " + datasetTableName + " (" + schema
         mariadbUtils.execSqlToMariadb(createSql)
 
-//      //insert 大表資料  -> 改成 df.write
-//      mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
-        mariadbUtils.saveToMariadb(spark, testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
+
+    //      //insert 大表資料  -> 改成 df.write
+        mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
+//        mariadbUtils.saveToMariadb(spark, testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
 
         //update dataset 設定的欄位 -> 改到全部的資料集結束再處理
 //        val updateSql = "UPDATE data_set_setting" + " SET bt_name='" + datasetTableName.substring(1, datasetTableName.length - 1) + "'," +
@@ -403,6 +408,7 @@ println("-----------------> drop and insert bigtable: " + id + ", start_time:" +
 //          " bt_next_time = '" + nextExcuteTime + "'" +
 //          " WHERE id = " + id
 //        mariadbUtils.execSqlToMariadb(updateSql)
+
 
 println("-----------------> drop and insert bigtable: " + id + ", end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))

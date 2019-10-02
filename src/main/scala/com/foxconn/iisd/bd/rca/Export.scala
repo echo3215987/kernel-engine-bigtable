@@ -15,7 +15,7 @@ import scala.collection.mutable.Seq
 
 object Export{
 
-    val mariadbUtils = new MariadbUtils()
+//    val mariadbUtils = new MariadbUtils()
     val stationInfoColumn = configLoader.getString("dataset", "station_info_col")
 
     val itemInfoColumn = configLoader.getString("dataset", "item_info_col")

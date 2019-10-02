@@ -41,7 +41,7 @@ mariadb:
     database:    "rca-cartridge-nesta"
     username:    "edgeserver"
     password:    "Foxconn123654!@"
-    #conn_str:    "jdbc:{{adapter}}:{{loadbalance}}://{{host1}}:{{port}},{{host2}}:{{port}},{{host3}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
+    #conn_str:    "jdbc:{{adapter}}:{{loadbalance}}://{{host1}}:{{port}},{{host2}}:{{port}},{{host3}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8&autoReconnect=true"
     conn_str:    "jdbc:{{adapter}}:{{loadbalance}}://{{host3}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
 
 general:

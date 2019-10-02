@@ -2,22 +2,24 @@ package com.foxconn.iisd.bd.rca
 
 import java.io.FileNotFoundException
 import java.net.InetAddress
+import java.sql.DriverManager
 import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
-import java.util.Locale
-import java.util.Date
+import java.util.{Date, Locale, Properties}
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
 
 import com.foxconn.iisd.bd.rca.Bigtable.mariadbUtils
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 import org.apache.spark.sql.functions.{regexp_extract, regexp_replace, _}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import com.foxconn.iisd.bd.rca.SparkUDF._
 import org.apache.spark.api.java.function.MapFunction
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.storage.StorageLevel
+
 
 
 object XWJBigtable {
@@ -80,7 +82,7 @@ object XWJBigtable {
 
 
       try {
-//           jobId = "rca-ke-dev-uuid-20190923100000-driver"
+//           jobId = "rca-ke-dev-uuid-20190930000000-driver"
         jobYear = jobId.split("-uuid-")(1).split("-")(0).slice(0, 4)
         jobMonth = jobId.split("-uuid-")(1).split("-")(0).slice(4, 6)
         jobDay = jobId.split("-uuid-")(1).split("-")(0).slice(6, 8)
@@ -190,11 +192,14 @@ object XWJBigtable {
       //      val datasetGroupByProductIdList = datasetGroupByProductIdDF.select("product", "id", "station", "item", "component").collect.toList
       val datasetGroupByProductIdList = datasetGroupByProductIdDF.select("product", "id", "station", "component").collect.toList
 
+      //TODO 紀錄壓測時間
       //依每個資料集id建大表
       for (row <- datasetGroupByProductIdList) {
         val id = row.getAs[Long]("id").toString
+
+        val startTime = new Date().getTime()
         println("gen bigtable id: " + id + " start_time:" + new SimpleDateFormat(
-          configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+          configLoader.getString("summary_log_path", "job_fmt")).format(startTime))
         val currentDatasetDf = datasetGroupByProductIdDF.where("id='" + id + "'")
         val product = currentDatasetDf.select("product").map(_.getString(0)).collect().mkString("")
         val stationList = currentDatasetDf.selectExpr("explode(station)").dropDuplicates().map(_.getString(0)).collect.toList
@@ -213,8 +218,8 @@ object XWJBigtable {
         val (jsonColumnMapping, columnNames) = Export.exportBigtableToCsv(spark, currentDatasetDf, currentDatasetStationItemDf, id, testDeailResultGroupByFirstDf)
 println("-----------------> extract bigtable column datatype: " + id + ", start_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
-
-println("id :" + id + " sn count:" + testDeailResultGroupByFirstDf.select("sn").dropDuplicates().count())
+        val snCount = testDeailResultGroupByFirstDf.select("sn").dropDuplicates().count()
+println("id :" + id + ", sn count:" + snCount)
         //紀錄datatype
         val fieldDataTypeMap = fieldsColumnDataType.map(field => (field.name, field.dataType)).toMap
         //release memory
@@ -267,10 +272,50 @@ println("id :" + id + " sn count:" + testDeailResultGroupByFirstDf.select("sn").
         mariadbUtils.saveToMariadb(datasetDataTypeDf, datatypeTable, numExecutors)
 println("-----------------> extract bigtable column datatype: " + id + ", end_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
-
+        val endTime = new Date().getTime()
 println("gen bigtable id: " + id + " end_time:" + new SimpleDateFormat(
-  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+  configLoader.getString("summary_log_path", "job_fmt")).format(endTime))
 
+        //TODO fii壓測紀錄---start
+//        val currentDatasetDf = datasetGroupByProductIdDF.where("id='" + id + "'")
+
+        val sec = TimeUnit.SECONDS.convert(endTime - startTime, TimeUnit.MILLISECONDS)
+        val s = sec % 60
+        val m = (sec/60) % 60
+        val h = (sec/60/60) % 24
+        val str = "%02d:%02d:%02d".format(h, m, s)
+
+        val insertSql = "INSERT INTO data_set_bigtable_execute_time(product, data_set_id, data_set_item_columns, sn_count, start_time, end_time, spend_time)" +
+          "VALUES ('" + row.getAs[String]("product").toString + "','" + id + "','" + itemList.size + "','" + snCount + "','" +
+          new SimpleDateFormat(configLoader.getString("summary_log_path", "job_fmt")).format(startTime) + "','" +
+          new SimpleDateFormat(configLoader.getString("summary_log_path", "job_fmt")).format(endTime) + "','" +
+          str + "')"
+
+        mariadbUtils.execSqlToMariadb(insertSql)
+//        val productionUrl = "jdbc:mysql:loadbalance://10.134.224.194:3306/rca-cartridge-nesta?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
+
+//        val mariadbConnectionProperties = new Properties()
+//
+//        mariadbConnectionProperties.put(
+//          "user",
+//          configLoader.getString("mariadb", "username")
+//        )
+//
+//        mariadbConnectionProperties.put(
+//          "password",
+//          configLoader.getString("mariadb", "password")
+//        )
+//
+//        val conn = DriverManager.getConnection(productionUrl,
+//          mariadbConnectionProperties)
+//
+//        conn.setAutoCommit(false)
+//
+//
+//        val rs = conn.createStatement().execute(insertSql)
+//
+//        conn.commit()
+        //TODO fii壓測紀錄---end
       }
 
       val formatter = DateTimeFormatter.ofPattern(configLoader.getString("summary_log_path", "job_fmt"))
@@ -287,6 +332,7 @@ println("gen bigtable id: " + id + " end_time:" + new SimpleDateFormat(
           " bt_next_time = '" + genDatasetEndTime + "'" + //下一次執行時間
           " WHERE id = " + id
         mariadbUtils.execSqlToMariadb(updateSql)
+
       }
 
       val jobEndTime: String = new SimpleDateFormat(

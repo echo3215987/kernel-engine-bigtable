@@ -21,12 +21,13 @@ cockroachdb:
     username:   "bigdata"
     password:   "bigdata"
    #conn_str:   "jdbc:{{adapter}}://{{host}}:{{port}}/{{database}}"
-    conn_str:   "jdbc:{{adapter}}://{{host1}}:{{port}},{{host2}}:{{port}},{{host3}}:{{port}}/{{database}}"
+    conn_str:   "jdbc:{{adapter}}://{{host2}}:{{port}},{{host3}}:{{port}}/{{database}}"
 
 mariadb:
     adapter:    "mysql"
     loadbalance: "loadbalance"
     host:       "10.57.232.61"
+    host3:       "10.134.224.194"
     port:       "3308"
     database:   "rca-dev"
     #database:   "rca-staging-ipbd-lx-printer"
