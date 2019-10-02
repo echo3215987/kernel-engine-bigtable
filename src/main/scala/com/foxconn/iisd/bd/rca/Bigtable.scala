@@ -1,10 +1,10 @@
 package com.foxconn.iisd.bd.rca
 
 import java.text.SimpleDateFormat
-import java.util.Date
+import java.util.{Date, Properties}
 
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
-import com.foxconn.iisd.bd.rca.SparkUDF.{genInfo, genItemJsonFormat, genStaionJsonFormat, genTestDetailSelectSql, transferArrayToString, getFirstOrLastRow}
+import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
+import com.foxconn.iisd.bd.rca.SparkUDF.{genInfo, genItemJsonFormat, genStaionJsonFormat, genTestDetailSelectSql, getFirstOrLastRow, transferArrayToString}
 import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -379,7 +379,8 @@ configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime
         testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
           .withColumnRenamed("name", "data_set_name")
           .withColumnRenamed("id", "data_set_id")
-          .persist(StorageLevel.MEMORY_AND_DISK_SER)
+//          .persist(StorageLevel.MEMORY_AND_DISK_SER)
+          .persist(StorageLevel.DISK_ONLY)
 
 println("-----------------> drop and insert bigtable: " + id + ", start_time:" + new SimpleDateFormat(
   configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
@@ -397,17 +398,32 @@ println("-----------------> drop and insert bigtable: " + id + ", start_time:" +
         mariadbUtils.execSqlToMariadb(createSql)
 
 
-    //      //insert 大表資料  -> 改成 df.write
-        mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
-//        mariadbUtils.saveToMariadb(spark, testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
+          //insert 大表資料  -> 改成 df.write
+          println("-----------------> insert data" + id + ", start_time:" + new SimpleDateFormat(
+            configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+          println("numExecutors:" + numExecutors)
+          mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
+          println("-----------------> insert data" + id + ", end_time:" + new SimpleDateFormat(
+            configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
-        //update dataset 設定的欄位 -> 改到全部的資料集結束再處理
-//        val updateSql = "UPDATE data_set_setting" + " SET bt_name='" + datasetTableName.substring(1, datasetTableName.length - 1) + "'," +
-//          " bt_create_time = COALESCE(bt_create_time, '" + jobStartTime + "')," +
-//          " bt_last_time = '" + jobStartTime + "'," +
-//          " bt_next_time = '" + nextExcuteTime + "'" +
-//          " WHERE id = " + id
-//        mariadbUtils.execSqlToMariadb(updateSql)
+//          val mariadbConnectionProperties = new Properties()
+//
+//          mariadbConnectionProperties.put(
+//            "user", "root"
+//          )
+//
+//          mariadbConnectionProperties.put(
+//            "password", "123456"
+//          )
+//          println(numExecutors)
+//          val url = "jdbc:mysql:loadbalance://10.57.232.173:3306/testdb?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
+//          println("test connections--start")
+//          testDeailResultGroupByFirstDf.write
+//            .mode(SaveMode.Append)
+//            .option("numPartitions", numExecutors)
+//            .option("dbtable", datasetTableName)
+//            .jdbc(url, datasetTableName, mariadbConnectionProperties)
+//          println("test connections--end")
 
 
 println("-----------------> drop and insert bigtable: " + id + ", end_time:" + new SimpleDateFormat(

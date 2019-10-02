@@ -292,6 +292,7 @@ println("gen bigtable id: " + id + " end_time:" + new SimpleDateFormat(
           str + "')"
 
         mariadbUtils.execSqlToMariadb(insertSql)
+        //marked
 //        val productionUrl = "jdbc:mysql:loadbalance://10.134.224.194:3306/rca-cartridge-nesta?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
 
 //        val mariadbConnectionProperties = new Properties()

@@ -5,7 +5,7 @@ spark:
 #           spark.executor.memory=2g;"
     master: "k8s://10.134.226.248:8443"
     conf: "spark.driver.memory=3g;
-       spark.executor.memory=3g;
+       spark.executor.memory=4g;
        spark.executor.instances=3;
        spark.memory.offHeap.enabled=true;
        spark.memory.offHeap.size=4g;"

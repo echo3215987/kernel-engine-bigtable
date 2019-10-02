@@ -147,81 +147,80 @@ class MariadbUtils {
         spark.createDataFrame(rdd, schema)
     }
 
+//    def saveToMariadb(df: DataFrame, table: String, numExecutors: Int): Unit = {
+//        try{
+//            val mariadbUrl = configLoader.getString("mariadb", "conn_str")
+//            val mariadbConnectionProperties = new Properties()
+//
+//            mariadbConnectionProperties.put(
+//                "user",
+//                configLoader.getString("mariadb", "username")
+//            )
+//
+//            mariadbConnectionProperties.put(
+//                "password",
+//                configLoader.getString("mariadb", "password")
+//            )
+//
+//            val sqlPrefix =
+//                "REPLACE INTO " + table +
+//                  "(" + df.columns.mkString(",") + ")" +
+//                  " VALUES "
+//
+//            val batchSize = 3000
+//            val repartitionSize = numExecutors
+//
+//            df.rdd.repartition(repartitionSize).foreachPartition{
+//
+//                partition => {
+//
+//                    val conn = DriverManager.getConnection(
+//                        mariadbUrl,
+//                        mariadbConnectionProperties)
+//
+//                    conn.setAutoCommit(false)
+//
+//                    var count = 0
+//                    var sql = sqlPrefix
+//
+//                    partition.foreach { r =>
+//                        count += 1
+//
+//                        val values = r.mkString("'", "','", "'").replaceAll("'null'", "null")
+//
+//                        sql = sql + "(" + values + ") ,"
+//
+//                        if(count == batchSize){
+//                            //                        println("寫入Mariadb筆數 : " + count)
+//                            //                        println("sql : " + sql.substring(0, sql.length - 1))
+//                            conn.createStatement().execute(sql.substring(0, sql.length - 1))
+//                            count = 0
+//                            sql = sqlPrefix
+//
+//                            conn.commit()
+//                        }
+//                    }
+//
+//                    if(count > 0) {
+//                        //                    println("寫入Mariadb筆數 : " + count)
+//                        //                    println("sql : " + sql.substring(0, sql.length - 1))
+//                        conn.createStatement().execute(sql.substring(0, sql.length - 1))
+//                    }
+//
+//                    conn.commit()
+//                }
+//            }
+//        }
+//        catch {
+//            case ex => ex.printStackTrace()
+//        }
+//
+//    }
+
     def saveToMariadb(df: DataFrame, table: String, numExecutors: Int): Unit = {
-        try{
-            val mariadbUrl = configLoader.getString("mariadb", "conn_str")
-            val mariadbConnectionProperties = new Properties()
-
-            mariadbConnectionProperties.put(
-                "user",
-                configLoader.getString("mariadb", "username")
-            )
-
-            mariadbConnectionProperties.put(
-                "password",
-                configLoader.getString("mariadb", "password")
-            )
-
-            val sqlPrefix =
-                "REPLACE INTO " + table +
-                  "(" + df.columns.mkString(",") + ")" +
-                  " VALUES "
-
-            val batchSize = 3000
-            val repartitionSize = numExecutors
-
-            df.rdd.repartition(repartitionSize).foreachPartition{
-
-                partition => {
-
-                    val conn = DriverManager.getConnection(
-                        mariadbUrl,
-                        mariadbConnectionProperties)
-
-                    conn.setAutoCommit(false)
-
-                    var count = 0
-                    var sql = sqlPrefix
-
-                    partition.foreach { r =>
-                        count += 1
-
-                        val values = r.mkString("'", "','", "'").replaceAll("'null'", "null")
-
-                        sql = sql + "(" + values + ") ,"
-
-                        if(count == batchSize){
-                            //                        println("寫入Mariadb筆數 : " + count)
-                            //                        println("sql : " + sql.substring(0, sql.length - 1))
-                            conn.createStatement().execute(sql.substring(0, sql.length - 1))
-                            count = 0
-                            sql = sqlPrefix
-
-                            conn.commit()
-                        }
-                    }
-
-                    if(count > 0) {
-                        //                    println("寫入Mariadb筆數 : " + count)
-                        //                    println("sql : " + sql.substring(0, sql.length - 1))
-                        conn.createStatement().execute(sql.substring(0, sql.length - 1))
-                    }
-
-                    conn.commit()
-                }
-            }
-        }
-        catch {
-            case ex => ex.printStackTrace()
-        }
-
-    }
-
-    def saveToMariadb(spark: SparkSession, df: DataFrame, table: String, numExecutors: Int): Unit = {
         df.write
           .mode(SaveMode.Append)
           .option("numPartitions", numExecutors)
-          .option("dbtable", table)
           .jdbc(this.getMariadbUrl(), table, this.getMariadbConnectionProperties())
     }
 }
