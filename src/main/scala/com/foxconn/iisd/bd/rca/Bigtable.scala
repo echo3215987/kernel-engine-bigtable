@@ -398,13 +398,13 @@ println("-----------------> drop and insert bigtable: " + id + ", start_time:" +
         mariadbUtils.execSqlToMariadb(createSql)
 
 
-          //insert 大表資料  -> 改成 df.write
-          println("-----------------> insert data" + id + ", start_time:" + new SimpleDateFormat(
-            configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
-          println("numExecutors:" + numExecutors)
-          mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
-          println("-----------------> insert data" + id + ", end_time:" + new SimpleDateFormat(
-            configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+        //insert 大表資料  -> 改成 df.write
+        println("-----------------> insert data" + id + ", start_time:" + new SimpleDateFormat(
+          configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+        println("numExecutors:" + numExecutors)
+        mariadbUtils.saveToMariadb(testDeailResultGroupByFirstDf, datasetTableName, numExecutors)
+        println("-----------------> insert data" + id + ", end_time:" + new SimpleDateFormat(
+          configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
 
 //          val mariadbConnectionProperties = new Properties()
 //

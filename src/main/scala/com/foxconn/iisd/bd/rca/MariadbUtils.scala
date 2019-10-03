@@ -97,55 +97,13 @@ class MariadbUtils {
         val rs = conn.createStatement().execute(sql)
 
         conn.commit()
-    }
 
-    def getRowFromResultSet(resultSet: ResultSet, colCount: Int): Row ={
-        var i : Int = 1
-        var seq = Seq("")
-        while(i <= colCount){
-            if(i == 1)
-                seq = Seq(resultSet.getString(i))
-            else
-                seq = seq :+ resultSet.getString(i)
-            i += 1
-        }
-
-        Row.fromSeq(seq)
-    }
-
-    def execSqlToMariadbToDf(spark: SparkSession, sql: String, columns: String) : DataFrame = {
-
-        val schema = StructType(columns
-          .split(",")
-          .map(fieldName => StructField(fieldName,StringType, true)))
-
-        val conn = this.getConn()
-
-        val rs = conn.createStatement().executeQuery(sql)
-
-        val columnCnt: Int = rs.getMetaData.getColumnCount
-
-//        val columns: IndexedSeq[String] = 1 to columnCnt map rs.getMetaData.getColumnName
-//        val results: Iterator[IndexedSeq[String]] = Iterator.continually(rs).takeWhile(_.next())
-//          .map{ rs =>
-//            columns map rs.getString
-//        }
-
-        val resultSetRow = Iterator.continually((rs.next(), rs)).takeWhile(_._1).map(
-            r => {
-                getRowFromResultSet(r._2, columnCnt) // (ResultSet) => (spark.sql.Row)
-            }).toList
-
-//        println(resultSetRow)
-
-
-        val rdd = spark.sparkContext.makeRDD(resultSetRow)
-
-        conn.commit()
         conn.close()
 
-        spark.createDataFrame(rdd, schema)
     }
+
+
+
 
 //    def saveToMariadb(df: DataFrame, table: String, numExecutors: Int): Unit = {
 //        try{
