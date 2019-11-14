@@ -16,6 +16,7 @@ minio:
     endpoint:   "http://10.57.232.167:31359"
     accessKey:  "AKIAIOSFODNN7EXAMPLE"
     secretKey:  "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    connectionSslEnabled: "false"
     bucket:     "rca-staging"
 
 cockroachdb:
@@ -40,10 +41,15 @@ mariadb:
     username:   "edgeserver"
     password:   "Foxconn123654!@"
     conn_str:    "jdbc:{{adapter}}:{{loadbalance}}://{{host}}:{{port}}/{{database}}?useSSL=false&serverTimezone=Asia/Taipei&useUnicode=true&characterEncoding=UTF-8"
+    product_item_spec_table: "product_item_spec"
+    product_station_table: "product_station"
+    mat_table: "config_component"
+    bigtable_datatype_table: "data_set_bigtable_columns"
 
 general:
     factory: "CQ"
     from_minio: "true"
+    env: "staging"
 
 part_vendor_rules:
     CD: "PARTSN,1,2"
@@ -87,9 +93,10 @@ minio_log_path:
 
 summary_log_path:
     data_base_path: "s3a://rca-staging/Cartridge-Nesta/Summary"
-    tag: "KE"
+    tag: "XWJ_KE_Bigtable"
     file_extension: "log"
     job_fmt: "yyyy-MM-dd HH:mm:ss"
+    bu_name: "rca-cartridge-nesta"
 
 log_prop:
     #CN8BJ7C2G1_||_CN8BJ7C2G1_||_296200140_||_V1N03B#629_||_V1N03B#629_||_Main   B_||_2018-11-19 13:39:07.467_||__||__||_TaiJi   Base_||_D626
@@ -136,32 +143,8 @@ log_prop:
 analysis:
     fail_condition: "2"
 
-test_floor_line:
-    code_5: "D713"
-    code_D714: "D714"
-    code_T: "D721"
-    code_4: "D722"
-    code_6: "D723"
-    code_F: "D621"
-    code_7: "D622"
-    code_B: "D623"
-    code_9: "D624"
-    code_8: "D625"
-    code_C: "D626"
-    code_G: "D631"
-    code_H: "D632"
-    code_Q: "D633"
-    code_N: "D634"
-    code_P: "D635"
-    code_D: "D636"
-
-taiji_base:
-    code: "06MD,06PK,06PN,06P4,06PP,06PS,06PT,06PV,06PX,06PY,06PZ,06Q2,06Q3,06Q4,06Q7,06Q8,06Q9,06QD,070W,070X"
-
 dataset:
     sdf_format: "M/dd/yyyy,dd.M.yyyy,M/dd/yyyy hh:mm:ss a,dd.M.yyyy hh:mm:ss a,dd.MMM.yyyy,dd-MMM-yyyy"
-    product_item_spec_table: "product_item_spec"
-    bigtable_datatype_table: "data_set_bigtable_columns"
     bigtable_datatype_col: "data_set_id,column_name,column_type,json_str"
     station_info_col: "build_description,unit_number,station_id,test_status,test_starttime,list_of_failure,test_version,machine_id"
     item_info_col: "test_value,test_item_result,test_item_result_detail"
@@ -174,3 +157,4 @@ dataset:
     item_info_str: "item_info"
     component_str: "component"
     component_info_str: "component_info"
+    numPartitions: "10"

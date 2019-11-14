@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import com.foxconn.iisd.bd.rca.SparkUDF.{genInfo, genItemJsonFormat, genStaionJsonFormat, transferArrayToString}
-import com.foxconn.iisd.bd.rca.XWJBigtable.configLoader
+import com.foxconn.iisd.bd.rca.XWJBigtable.{configContext, configLoader}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -15,38 +15,20 @@ import scala.collection.mutable.Seq
 
 object Export{
 
-//    val mariadbUtils = new MariadbUtils()
-    val stationInfoColumn = configLoader.getString("dataset", "station_info_col")
-
-    val itemInfoColumn = configLoader.getString("dataset", "item_info_col")
-
-    val componentInfoColumn = configLoader.getString("dataset", "component_info_col")
-
-    val stationInfo = configLoader.getString("dataset", "station_info_str")
-
-    val itemInfo = configLoader.getString("dataset", "item_info_str")
-
-    val componentInfo = configLoader.getString("dataset", "component_info_str")
-
-    val datasetColumnNames = configLoader.getString("dataset", "bigtable_datatype_col")
-
-    val datasetPath = configLoader.getString("minio_log_path", "dataset_path")
-
-    def exportBigtableToCsv(spark: SparkSession, currentDatasetDF: DataFrame, currentDatasetStationItemDf: DataFrame,
+    def exportBigtableToCsv(configContext: ConfigContext, currentDatasetDF: DataFrame, currentDatasetStationItemDf: DataFrame,
                             id: String, testDeailResultGroupByDf: DataFrame) ={
-        import spark.implicits._
-        val numExecutors = spark.conf.get("spark.executor.instances", "1").toInt
+      val sparkSession = configContext.sparkSession
+      import sparkSession.implicits._
 
 println("-----------------> export bigtable to file: " + id + ", start_time:" + new SimpleDateFormat(
-  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
-
+        configContext.jobDateFmt).format(new Date().getTime()))
 
         val itemList = currentDatasetStationItemDf.withColumn("item", explode(col("item")))
           .withColumn("item_column", concat(col("station_name"), lit("@"), col("item")))
           .select("item_column").map(_.getString(0)).collect.toList
 
         //展開json欄位匯出csv提供客戶下載, 並將大表欄位儲存起來
-        val jsonColumns = List(stationInfo, itemInfo, componentInfo)
+        val jsonColumns = List(configContext.stationInfo, configContext.itemInfo, configContext.componentInfo)
         var testDeailResultGroupByFirstDf = testDeailResultGroupByDf
         for(jsonInfo <- jsonColumns){
             testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf
@@ -55,7 +37,7 @@ println("-----------------> export bigtable to file: " + id + ", start_time:" + 
         }
 
         //station 與 component json固定資訊
-        val jsonMap = Map(stationInfo -> stationInfoColumn, componentInfo -> componentInfoColumn)
+        val jsonMap = Map(configContext.stationInfo -> configContext.stationInfoColumns, configContext.componentInfo -> configContext.componentInfoColumns)
 
         //展開json object, 存成csv
         var currentDatasetDf = currentDatasetDF
@@ -65,7 +47,7 @@ println("-----------------> export bigtable to file: " + id + ", start_time:" + 
             currentDatasetDf = currentDatasetDf.withColumn(datasetColumnName, explode(col(datasetColumnName)))
             val infoList = currentDatasetDf.select(datasetColumnName).dropDuplicates().map(_.getString(0)).collect.toList
             var infoFielids = List[String]()
-            if(jsonInfo.equals(itemInfo)){
+            if(jsonInfo.equals(configContext.itemInfo)){
                 for(item <- itemList){
                     infoFielids = infoFielids :+ item
                     val jsonResult = item + "@result"
@@ -78,7 +60,7 @@ println("-----------------> export bigtable to file: " + id + ", start_time:" + 
                 }
             }
 
-            if(jsonInfo.equals(stationInfo) || jsonInfo.equals(componentInfo)){
+            if(jsonInfo.equals(configContext.stationInfo) || jsonInfo.equals(configContext.componentInfo)){
                 for(info <- infoList){
                     val value = jsonMap.apply(jsonInfo)
                     for(attr <- value.split(",")){
@@ -105,11 +87,11 @@ println("-----------------> export bigtable to file: " + id + ", start_time:" + 
             testDeailResultGroupByFirstDf = testDeailResultGroupByFirstDf.drop(jsonInfo)
         }
 
-        testDeailResultGroupByFirstDf.repartition(numExecutors).write.option("header", "true")
-          .mode("overwrite").csv(datasetPath + "/" + id)
+        testDeailResultGroupByFirstDf.repartition(configContext.sparkNumExcutors).write.option("header", "true")
+          .mode("overwrite").csv(configContext.datasetPath + "/" + id)
 
 println("-----------------> export bigtable to file: " + id + ", end_time:" + new SimpleDateFormat(
-  configLoader.getString("summary_log_path", "job_fmt")).format(new Date().getTime()))
+        configContext.jobDateFmt).format(new Date().getTime()))
 
         (jsonColumnMapping, testDeailResultGroupByFirstDf.columns)
     }

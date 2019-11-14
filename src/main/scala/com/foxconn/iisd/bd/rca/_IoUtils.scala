@@ -15,7 +15,7 @@ import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import scala.io.Source
 
-object IoUtils {
+object _IoUtils {
 
     private def getCockroachdbUrl(): String = {
         return configLoader.getString("cockroachdb", "conn_str")
@@ -402,13 +402,6 @@ object IoUtils {
           .split(",")
           .map(fieldName => StructField(fieldName,StringType, true)))
     }
-
-
-    //gen test item select sql
-//    def genTestDetailItemSelectSQL(colName:String, item: Seq[String]) = {
-//        //test_value->>'first_name', test_value->>'location'
-//        item.map(i=> "t2." + colName +"->>'" + i + "'").mkString(",")
-//    }
 
     //gen test_value, test_item_result, test_item_result_detail column select sql
     def genTestDetailItemSelectSQL(colName:String, item: Seq[String]) = {

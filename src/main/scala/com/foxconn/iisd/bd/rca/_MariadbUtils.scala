@@ -9,7 +9,7 @@ import org.apache.spark.sql.types.{StructType, StructField, TimestampType, Strin
 import org.apache.spark.rdd.JdbcRDD
 import org.apache.spark.sql.SaveMode
 
-class MariadbUtils {
+class _MariadbUtils {
 
     private var _conn: Connection = null
 
@@ -181,4 +181,5 @@ class MariadbUtils {
           .option("numPartitions", numExecutors)
           .jdbc(this.getMariadbUrl(), table, this.getMariadbConnectionProperties())
     }
+
 }

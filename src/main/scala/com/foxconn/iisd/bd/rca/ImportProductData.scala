@@ -49,12 +49,6 @@ object ImportProductData {
         .withColumn("modify_time", lit("2019-09-27 14:30:00"))
 
 
-// CN047-30008
-//|N9H78-30001
-//|CN045-30006
-//|CN046-30006
-
-
       val mariadbConnectionProperties = new Properties()
 
       mariadbConnectionProperties.put(
